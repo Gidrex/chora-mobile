@@ -10,29 +10,20 @@ import 'screens/capture.dart';
 import 'screens/events.dart';
 import 'screens/notes.dart';
 import 'screens/settings.dart';
-import 'syncthing.dart';
+import 'stars.dart';
 import 'theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final prefs = await SharedPreferences.getInstance();
   final state = AppState(prefs);
-  Syncthing.bindKeyReader(() => state.stApiKey());
   try {
     await Backend.init(state.rootDirOverride);
-    await seedDemo(Backend.root);
     await Reminders.init();
     await Reminders.rescheduleUpcoming(
       enabled: state.notifEnabled,
       minutesBefore: state.notifMinutes,
     );
-    if (state.stEnabled) {
-      try {
-        await Syncthing.start(Backend.root, await state.stApiKey());
-      } catch (_) {
-        await state.setStEnabled(false);
-      }
-    }
   } catch (e) {
     runApp(_BootError(state: state, message: Backend.errMsg(e)));
     return;
@@ -184,7 +175,6 @@ class _MainScaffoldState extends State<MainScaffold> {
 
   Future<void> _reinitBackend() async {
     await Backend.init(widget.state.rootDirOverride);
-    await seedDemo(Backend.root);
     if (!mounted) return;
     _captureKey.currentState?.refresh();
     _notesKey.currentState?.reload();
@@ -196,25 +186,30 @@ class _MainScaffoldState extends State<MainScaffold> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Scaffold(
-      body: PageView(
-        controller: _pages,
-        onPageChanged: _onPage,
+      body: Stack(
         children: [
-          CaptureScreen(
-            key: _captureKey,
-            state: widget.state,
-            onSaved: () {
-              _notesKey.currentState?.reload();
-              _eventsKey.currentState?.reload();
-            },
-          ),
-          NotesScreen(key: _notesKey, state: widget.state),
-          EventsScreen(key: _eventsKey, state: widget.state),
-          SettingsScreen(
-            key: _settingsKey,
-            state: widget.state,
-            onRootChanged: _reinitBackend,
-            onAppearanceChanged: () => setState(() {}),
+          const Positioned.fill(child: Starfield()),
+          PageView(
+            controller: _pages,
+            onPageChanged: _onPage,
+            children: [
+              CaptureScreen(
+                key: _captureKey,
+                state: widget.state,
+                onSaved: () {
+                  _notesKey.currentState?.reload();
+                  _eventsKey.currentState?.reload();
+                },
+              ),
+              NotesScreen(key: _notesKey, state: widget.state),
+              EventsScreen(key: _eventsKey, state: widget.state),
+              SettingsScreen(
+                key: _settingsKey,
+                state: widget.state,
+                onRootChanged: _reinitBackend,
+                onAppearanceChanged: () => setState(() {}),
+              ),
+            ],
           ),
         ],
       ),

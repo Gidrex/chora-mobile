@@ -36,7 +36,7 @@ class Backend {
 
   static DateTime dateOf(String iso) => DateTime.parse(iso);
 
-  /// Files matching Syncthing conflict markers under the storage root.
+  /// Files matching sync-conflict markers under the storage root.
   static Future<List<String>> conflicts() async {
     final out = <String>[];
     final rootDir = Directory(root);

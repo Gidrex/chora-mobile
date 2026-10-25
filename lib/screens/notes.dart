@@ -66,6 +66,7 @@ class NotesScreenState extends State<NotesScreen> {
           p.files.any((f) => f.relPath.toLowerCase().contains(query));
     }).toList();
     return Scaffold(
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         title: const Text('Notes'),
         actions: [
@@ -92,6 +93,10 @@ class NotesScreenState extends State<NotesScreen> {
           Expanded(
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
+                : visible.isEmpty
+                ? Center(
+                    child: Text(query.isEmpty ? 'No notes yet' : 'No matches'),
+                  )
                 : RefreshIndicator(
                     onRefresh: reload,
                     child: ListView(
@@ -145,8 +150,7 @@ class NotesScreenState extends State<NotesScreen> {
               padding: const EdgeInsets.fromLTRB(16, 0, 8, 12),
               child: Column(
                 children: [
-                  for (var i = 0; i < p.files.length; i++)
-                    _fileRow(p, p.files[i], last: i == p.files.length - 1),
+                  for (final f in p.files) _fileRow(p, f),
                   if (p.files.isEmpty)
                     const ListTile(dense: true, title: Text('(empty)')),
                 ],
@@ -157,7 +161,8 @@ class NotesScreenState extends State<NotesScreen> {
     );
   }
 
-  Widget _fileRow(ProjectDto p, NoteFileDto f, {required bool last}) {
+  Widget _fileRow(ProjectDto p, NoteFileDto f) {
+    final scheme = Theme.of(context).colorScheme;
     final depth = f.relPath.split('/').length - 1;
     final label = f.relPath.startsWith('${p.dir}/')
         ? f.relPath.substring(p.dir.length + 1)
@@ -179,7 +184,8 @@ class NotesScreenState extends State<NotesScreen> {
                       color: Theme.of(context).colorScheme.outlineVariant,
                     ),
             ),
-            Text(last ? '└─ ' : '├─ ', style: mono(context, size: 11)),
+            Container(width: 10, height: 1, color: scheme.outlineVariant),
+            const SizedBox(width: 4),
             Expanded(child: Text(label, style: mono(context))),
             securityBadge(context, f.security.name),
           ],

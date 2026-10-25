@@ -47,7 +47,6 @@ class AppState extends ChangeNotifier {
   /// first | tag
   String get alarmMode => _prefs.getString('alarm_mode') ?? 'first';
   int get alarmBeforeMin => _prefs.getInt('alarm_before_min') ?? 30;
-  bool get stEnabled => _prefs.getBool('st_enabled') ?? false;
 
   /// Whole-app unlock (threshold `open`).
   bool appUnlocked = false;
@@ -94,7 +93,6 @@ class AppState extends ChangeNotifier {
   Future<void> setAutoAlarm(bool v) => _set('auto_alarm', v);
   Future<void> setAlarmMode(String v) => _set('alarm_mode', v);
   Future<void> setAlarmBeforeMin(int v) => _set('alarm_before_min', v);
-  Future<void> setStEnabled(bool v) => _set('st_enabled', v);
 
   /// True when `fileSecurity` (open|restricted|critical) needs a gate.
   bool needsGate(String fileSecurity) {
@@ -110,24 +108,4 @@ class AppState extends ChangeNotifier {
       _secure.write(key: 'chora_pin', value: pin);
   Future<bool> checkPin(String pin) async =>
       (await _secure.read(key: 'chora_pin')) == pin;
-  Future<String?> readStKey() => _secure.read(key: 'st_api_key');
-
-  /// The Syncthing REST key, generated once and kept in secure storage.
-  Future<String> stApiKey() async {
-    var key = await _secure.read(key: 'st_api_key');
-    if (key == null || key.isEmpty) {
-      key = _randomKey();
-      await _secure.write(key: 'st_api_key', value: key);
-    }
-    return key;
-  }
-
-  String _randomKey() {
-    final millis = DateTime.now().millisecondsSinceEpoch;
-    final rand = millis.toRadixString(36) + UniqueKey().toString();
-    return rand
-        .replaceAll(RegExp(r'[^a-zA-Z0-9]'), '')
-        .padRight(32, 'x')
-        .substring(0, 32);
-  }
 }

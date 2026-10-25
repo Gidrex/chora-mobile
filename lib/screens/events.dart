@@ -79,14 +79,16 @@ class EventsScreenState extends State<EventsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Scaffold(
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         title: const Text('Events'),
         actions: [
           SegmentedButton<bool>(
             segments: const [
-              ButtonSegment(value: true, label: Text('Календарь')),
-              ButtonSegment(value: false, label: Text('Список')),
+              ButtonSegment(value: true, label: Text('Calendar')),
+              ButtonSegment(value: false, label: Text('List')),
             ],
             selected: {_calendarView},
             onSelectionChanged: (s) => setState(() => _calendarView = s.first),
@@ -97,9 +99,17 @@ class EventsScreenState extends State<EventsScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _createDialog,
-        child: const Icon(Icons.add),
+      floatingActionButton: SizedBox(
+        width: 72,
+        height: 72,
+        child: FloatingActionButton(
+          onPressed: _createDialog,
+          shape: const CircleBorder(),
+          backgroundColor: scheme.inverseSurface,
+          foregroundColor: scheme.onInverseSurface,
+          elevation: 6,
+          child: const Icon(Icons.add, size: 32),
+        ),
       ),
       body: RefreshIndicator(
         onRefresh: reload,
@@ -175,7 +185,7 @@ class EventsScreenState extends State<EventsScreen> {
         children: [
           ListTile(
             dense: true,
-            title: const Text('▸ Repeatable (регулярные по дням недели)'),
+            title: const Text('Repeatable'),
             trailing: Icon(_repeatOpen ? Icons.expand_less : Icons.expand_more),
             onTap: () => setState(() => _repeatOpen = !_repeatOpen),
           ),
@@ -228,7 +238,7 @@ class EventsScreenState extends State<EventsScreen> {
               child: OutlinedButton.icon(
                 onPressed: () => _repeatDialog(),
                 icon: const Icon(Icons.add),
-                label: Text('+ Добавить в ${_repeatDay.substring(0, 3)}'),
+                label: Text('+ Add to ${_repeatDay.substring(0, 3)}'),
               ),
             ),
             const SizedBox(height: 4),
@@ -334,7 +344,7 @@ class EventsScreenState extends State<EventsScreen> {
             padding: const EdgeInsets.all(16),
             children: [
               SwitchListTile(
-                title: const Text('Уведомления о задачах'),
+                title: const Text('Task notifications'),
                 value: s.notifEnabled,
                 onChanged: (v) async {
                   await s.setNotifEnabled(v);
@@ -346,14 +356,14 @@ class EventsScreenState extends State<EventsScreen> {
                 },
               ),
               ListTile(
-                title: const Text('Предупреждать за'),
+                title: const Text('Notify before'),
                 trailing: DropdownButton<int>(
                   value: s.notifMinutes,
                   items: const [
-                    DropdownMenuItem(value: 0, child: Text('В момент начала')),
-                    DropdownMenuItem(value: 5, child: Text('5 мин')),
-                    DropdownMenuItem(value: 15, child: Text('15 мин')),
-                    DropdownMenuItem(value: 30, child: Text('30 мин')),
+                    DropdownMenuItem(value: 0, child: Text('At start')),
+                    DropdownMenuItem(value: 5, child: Text('5 min')),
+                    DropdownMenuItem(value: 15, child: Text('15 min')),
+                    DropdownMenuItem(value: 30, child: Text('30 min')),
                   ],
                   onChanged: (v) async {
                     if (v == null) return;
@@ -367,7 +377,7 @@ class EventsScreenState extends State<EventsScreen> {
                 ),
               ),
               SwitchListTile(
-                title: const Text('Системный будильник автоматически'),
+                title: const Text('Automatic system alarm'),
                 value: s.autoAlarm,
                 onChanged: (v) async {
                   await s.setAutoAlarm(v);
@@ -375,15 +385,15 @@ class EventsScreenState extends State<EventsScreen> {
                 },
               ),
               ListTile(
-                title: const Text('Будильник по'),
+                title: const Text('Alarm for'),
                 trailing: DropdownButton<String>(
                   value: s.alarmMode,
                   items: const [
                     DropdownMenuItem(
                       value: 'first',
-                      child: Text('Первому событию дня'),
+                      child: Text('First event of the day'),
                     ),
-                    DropdownMenuItem(value: 'tag', child: Text('Тегу #alarm')),
+                    DropdownMenuItem(value: 'tag', child: Text('#alarm tag')),
                   ],
                   onChanged: (v) async {
                     if (v == null) return;
@@ -393,7 +403,7 @@ class EventsScreenState extends State<EventsScreen> {
                 ),
               ),
               ListTile(
-                title: const Text('За минут до события'),
+                title: const Text('Minutes before'),
                 trailing: DropdownButton<int>(
                   value: s.alarmBeforeMin,
                   items: const [5, 10, 15, 30, 60]
@@ -478,29 +488,18 @@ class _CalendarGridWidgetState extends State<CalendarGridWidget>
               Column(
                 children: [
                   for (var row = 0; row < 6; row++)
-                    Row(
-                      children: [
-                        for (var col = 0; col < 7; col++)
-                          _cell(row * 7 + col, cellW, cellH, scheme),
-                      ],
+                    SizedBox(
+                      height: cellH,
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          for (var col = 0; col < 7; col++)
+                            Expanded(child: _cell(row * 7 + col, scheme)),
+                        ],
+                      ),
                     ),
                 ],
               ),
-              // Thin 1px dividers.
-              for (var col = 1; col < 7; col++)
-                Positioned(
-                  left: col * cellW,
-                  top: 0,
-                  bottom: 0,
-                  child: Container(width: 1, color: scheme.outlineVariant),
-                ),
-              for (var row = 1; row < 6; row++)
-                Positioned(
-                  top: row * cellH,
-                  left: 0,
-                  right: 0,
-                  child: Container(height: 1, color: scheme.outlineVariant),
-                ),
               if (_selected != null)
                 _popover(gridW, gridH, cellW, cellH, scheme),
             ],
@@ -510,52 +509,65 @@ class _CalendarGridWidgetState extends State<CalendarGridWidget>
     );
   }
 
-  Widget _cell(int index, double w, double h, ColorScheme scheme) {
+  Widget _cell(int index, ColorScheme scheme) {
     final cell = widget.cells[index];
     final selected = _selected == index;
     final today = Backend.isoOf(DateTime.now()) == cell.dateIso;
-    final marker = cell.dayTitle ?? cell.repeatTitle ?? '';
-    final markerColor = cell.dayTitle != null
-        ? scheme.primary
-        : cell.repeatTitle != null
-        ? scheme.secondary
-        : scheme.onSurface;
     return GestureDetector(
       onTap: () => _select(index),
-      child: Container(
-        width: w,
-        height: h,
-        color: selected ? scheme.primaryContainer : Colors.transparent,
-        padding: const EdgeInsets.all(2),
-        child: Opacity(
-          opacity: cell.inCurrentMonth ? 1 : 0.35,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              if (marker.isNotEmpty)
+      child: Padding(
+        padding: const EdgeInsets.all(3),
+        child: Container(
+          decoration: BoxDecoration(
+            color: selected ? scheme.primaryContainer : null,
+            borderRadius: BorderRadius.circular(12),
+            border: today && !selected
+                ? Border.all(color: scheme.primary, width: 2)
+                : null,
+          ),
+          child: Opacity(
+            opacity: cell.inCurrentMonth ? 1 : 0.35,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
                 Text(
-                  marker,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 9, color: markerColor),
-                ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                decoration: today
-                    ? BoxDecoration(
-                        color: scheme.primary,
-                        borderRadius: BorderRadius.circular(8),
-                      )
-                    : null,
-                child: Text(
                   '${cell.dayNum}',
                   style: TextStyle(
-                    fontWeight: today ? FontWeight.bold : FontWeight.normal,
-                    color: today ? scheme.onPrimary : null,
+                    fontSize: 15,
+                    fontWeight: today || selected
+                        ? FontWeight.w700
+                        : FontWeight.normal,
+                    color: selected ? scheme.onPrimaryContainer : null,
                   ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 3),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (cell.dayTitle != null)
+                      Container(
+                        width: 6,
+                        height: 6,
+                        decoration: BoxDecoration(
+                          color: scheme.primary,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    if (cell.dayTitle != null && cell.repeatTitle != null)
+                      const SizedBox(width: 3),
+                    if (cell.repeatTitle != null)
+                      Container(
+                        width: 6,
+                        height: 6,
+                        decoration: BoxDecoration(
+                          color: scheme.secondary,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -735,7 +747,7 @@ class _DayPopoverState extends State<_DayPopover> {
                 dense: true,
                 title: Row(
                   children: [
-                    if (event.isRepeatable) const Text('⟳ '),
+                    if (event.isRepeatable) const Icon(Icons.repeat, size: 14),
                     Expanded(child: Text(event.title)),
                   ],
                 ),
@@ -805,8 +817,13 @@ class _EventList extends StatefulWidget {
 }
 
 class _EventListState extends State<_EventList> {
-  final Map<String, DayEventsDto> _days = {};
+  late String _iso = Backend.isoOf(DateTime.now());
+  late DateTime _weekStart = _sundayOf(DateTime.now());
+  DayEventsDto? _day;
   bool _loading = true;
+
+  static DateTime _sundayOf(DateTime d) =>
+      DateTime(d.year, d.month, d.day).subtract(Duration(days: d.weekday % 7));
 
   @override
   void initState() {
@@ -815,68 +832,309 @@ class _EventListState extends State<_EventList> {
   }
 
   Future<void> _load() async {
-    final now = DateTime.now();
-    final isos = [
-      for (var off = -7; off <= 30; off++)
-        Backend.isoOf(now.add(Duration(days: off))),
-    ];
-    final results = await Future.wait(
-      isos.map((iso) async {
-        try {
-          final day = await getDayEvents(rootDir: Backend.root, dateIso: iso);
-          return MapEntry(iso, day);
-        } catch (_) {
-          return null;
-        }
-      }),
-    );
-    if (mounted) {
-      setState(() {
-        _days.clear();
-        for (final entry in results) {
-          if (entry != null && entry.value.events.isNotEmpty) {
-            _days[entry.key] = entry.value;
-          }
-        }
-        _loading = false;
-      });
+    setState(() => _loading = true);
+    try {
+      final day = await getDayEvents(rootDir: Backend.root, dateIso: _iso);
+      if (mounted) setState(() => _day = day);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(Backend.errMsg(e))));
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
+  }
+
+  void _select(DateTime date) {
+    setState(() => _iso = Backend.isoOf(date));
+    _load();
+  }
+
+  void _shiftWeek(int days) {
+    setState(() {
+      _weekStart = _weekStart.add(Duration(days: days));
+      _iso = Backend.isoOf(Backend.dateOf(_iso).add(Duration(days: days)));
+    });
+    _load();
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) return const Center(child: CircularProgressIndicator());
-    if (_days.isEmpty) return const Center(child: Text('(no events)'));
-    final isos = _days.keys.toList()..sort();
+    final scheme = Theme.of(context).colorScheme;
+    final date = Backend.dateOf(_iso);
+    final week = [
+      for (var i = 0; i < 7; i++) _weekStart.add(Duration(days: i)),
+    ];
+    final events = _day?.events ?? const <EventDto>[];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        for (final iso in isos) ...[
-          Padding(
-            padding: const EdgeInsets.only(top: 12, bottom: 4),
-            child: Text('# $iso', style: mono(context, size: 13)),
-          ),
-          for (final event in _days[iso]!.events)
-            Card(
-              margin: const EdgeInsets.only(bottom: 6),
-              child: ListTile(
-                dense: true,
-                title: Row(
-                  children: [
-                    if (event.isRepeatable) const Text('⟳ '),
-                    Expanded(child: Text(event.title)),
-                  ],
-                ),
-                subtitle: Text(
-                  '${event.timeHhmm} · ${event.durationStr}',
-                  style: mono(context, size: 11),
-                ),
+        Row(
+          children: [
+            IconButton(
+              icon: const Icon(Icons.chevron_left),
+              onPressed: () => _shiftWeek(-7),
+            ),
+            Expanded(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  for (final day in week) _weekCell(day, scheme, date),
+                ],
               ),
             ),
-        ],
+            IconButton(
+              icon: const Icon(Icons.chevron_right),
+              onPressed: () => _shiftWeek(7),
+            ),
+          ],
+        ),
+        Padding(
+          padding: const EdgeInsets.only(top: 8, bottom: 12),
+          child: Text(
+            _dayFull[(date.weekday - 1) % 7].toUpperCase(),
+            style: TextStyle(
+              fontSize: 13,
+              letterSpacing: 3,
+              color: scheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+        if (_loading)
+          const Center(child: CircularProgressIndicator())
+        else if (events.isEmpty)
+          const Center(child: Text('(no events)'))
+        else
+          Stack(
+            children: [
+              Positioned(
+                left: 13,
+                top: 8,
+                bottom: 8,
+                child: Container(width: 2, color: scheme.outlineVariant),
+              ),
+              Column(
+                children: [
+                  for (final event in events)
+                    _block(event, scheme, date, _accentsOf(context)),
+                ],
+              ),
+            ],
+          ),
       ],
     );
   }
+
+  Widget _weekCell(DateTime day, ColorScheme scheme, DateTime selected) {
+    final isSelected = day == selected;
+    return InkWell(
+      onTap: () => _select(day),
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        width: 40,
+        height: 40,
+        decoration: isSelected
+            ? BoxDecoration(color: scheme.primary, shape: BoxShape.circle)
+            : null,
+        child: Center(
+          child: Text(
+            _weekLetters[day.weekday % 7],
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: isSelected ? FontWeight.w700 : FontWeight.normal,
+              color: isSelected ? scheme.onPrimary : scheme.onSurface,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _block(
+    EventDto event,
+    ColorScheme scheme,
+    DateTime day,
+    List<Color> accents,
+  ) {
+    final color = _capsuleFor(event.title, accents);
+    final start = _parseHm(event.timeHhmm);
+    final startDt = start == null
+        ? null
+        : DateTime(day.year, day.month, day.day, start.hour, start.minute);
+    final past = startDt != null && startDt.isBefore(DateTime.now());
+    final card = Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color, width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: 0.35),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        event.title,
+                        style: const TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    if (event.isRepeatable) const Icon(Icons.repeat, size: 14),
+                  ],
+                ),
+                if (event.context.isNotEmpty)
+                  Text(
+                    event.context,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                start == null ? event.timeHhmm : _format12(start),
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              Row(
+                children: [
+                  Icon(
+                    Icons.schedule,
+                    size: 12,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    _humanDuration(event.durationStr),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 28,
+          child: Padding(
+            padding: const EdgeInsets.only(top: 20),
+            child: Center(
+              child: Container(
+                width: 14,
+                height: 14,
+                decoration: BoxDecoration(
+                  color: color,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(color: color, blurRadius: 8, spreadRadius: 1),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+        Expanded(child: past ? Opacity(opacity: 0.45, child: card) : card),
+      ],
+    );
+  }
+}
+
+const _weekLetters = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+const _dayFull = [
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
+  'Sunday',
+];
+
+/// Deterministic accent per event title (stable across restarts).
+Color _capsuleFor(String title, List<Color> accents) {
+  var hash = 0;
+  for (final unit in title.codeUnits) {
+    hash = (hash * 31 + unit) & 0x7fffffff;
+  }
+  return accents[hash % accents.length];
+}
+
+List<Color> _accentsOf(BuildContext context) {
+  final scheme = Theme.of(context).colorScheme;
+  return Theme.of(context).extension<EventPalette>()?.accents ??
+      [scheme.primary, scheme.secondary, scheme.tertiary, scheme.error];
+}
+
+TimeOfDay? _parseHm(String raw) {
+  final parts = raw.split(':');
+  if (parts.length != 2) return null;
+  final hour = int.tryParse(parts[0]);
+  final minute = int.tryParse(parts[1]);
+  if (hour == null || minute == null) return null;
+  return TimeOfDay(hour: hour, minute: minute);
+}
+
+/// Minutes from strings like `45m`, `1h`, `1h30m`.
+int? _parseMinutes(String raw) {
+  final match = RegExp(
+    r'^\s*(?:(\d+)\s*h)?\s*(?:(\d+)\s*m)?\s*$',
+  ).firstMatch(raw);
+  if (match == null) return null;
+  final total =
+      (int.tryParse(match.group(1) ?? '0') ?? 0) * 60 +
+      (int.tryParse(match.group(2) ?? '0') ?? 0);
+  return total == 0 ? null : total;
+}
+
+String _format12(TimeOfDay t) {
+  final hour = t.hour % 12 == 0 ? 12 : t.hour % 12;
+  return '$hour:${t.minute.toString().padLeft(2, '0')} ${t.hour < 12 ? 'AM' : 'PM'}';
+}
+
+/// `1 hour 30 minutes` from `1h30m` (falls back to the raw string).
+String _humanDuration(String raw) {
+  final mins = _parseMinutes(raw);
+  if (mins == null) return raw;
+  final parts = <String>[];
+  final hours = mins ~/ 60;
+  final minutes = mins % 60;
+  if (hours > 0) parts.add('$hours hour${hours == 1 ? '' : 's'}');
+  if (minutes > 0) parts.add('$minutes minute${minutes == 1 ? '' : 's'}');
+  return parts.join(' ');
 }
 
 /// Create / edit form for one event (also used for repeatables).
@@ -1082,7 +1340,7 @@ class _EventFormState extends State<_EventForm> {
                 controller: _duration,
                 style: mono(context),
                 decoration: const InputDecoration(
-                  labelText: 'Длит',
+                  labelText: 'Duration',
                   isDense: true,
                 ),
               ),
@@ -1102,18 +1360,18 @@ class _EventFormState extends State<_EventForm> {
             if (widget.initial != null &&
                 !widget.initial!.isRepeatable &&
                 !widget.repeatable)
-              TextButton(onPressed: _delete, child: const Text('Удалить')),
+              TextButton(onPressed: _delete, child: const Text('Delete')),
             if (widget.onDone != null)
               TextButton(
                 onPressed: () => widget.onDone!(false),
-                child: const Text('Назад'),
+                child: const Text('Back'),
               )
             else
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
-                child: const Text('Отмена'),
+                child: const Text('Cancel'),
               ),
-            FilledButton(onPressed: _save, child: const Text('Сохранить')),
+            FilledButton(onPressed: _save, child: const Text('Save')),
           ],
         ),
       ],

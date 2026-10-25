@@ -4,7 +4,6 @@ import 'package:flutter/services.dart';
 import '../app_state.dart';
 import '../backend.dart';
 import '../notifications.dart';
-import '../syncthing.dart';
 import '../theme.dart';
 
 /// Marker auto-inserted after Enter on a checklist line, else null.
@@ -267,14 +266,9 @@ class CaptureScreenState extends State<CaptureScreen> {
       child: Focus(
         autofocus: false,
         child: Scaffold(
+          backgroundColor: Colors.transparent,
           appBar: AppBar(
-            title: Row(
-              children: [
-                const Text('Capture'),
-                const SizedBox(width: 8),
-                _SyncDot(onTap: _reload),
-              ],
-            ),
+            title: const Text('Capture'),
             actions: [
               FilledButton(
                 onPressed: _saving ? null : _save,
@@ -293,7 +287,7 @@ class CaptureScreenState extends State<CaptureScreen> {
                   fontWeight: FontWeight.w600,
                 ),
                 decoration: const InputDecoration(
-                  hintText: 'Что нужно сделать или запомнить?',
+                  hintText: 'Write your thoughts...',
                   border: InputBorder.none,
                   filled: false,
                 ),
@@ -333,7 +327,7 @@ class CaptureScreenState extends State<CaptureScreen> {
                 ),
               ),
               const SizedBox(height: 8),
-              _quickBar(scheme),
+              _quickBar(),
               const SizedBox(height: 12),
               _bentoTiles(scheme),
               const SizedBox(height: 12),
@@ -345,27 +339,30 @@ class CaptureScreenState extends State<CaptureScreen> {
     );
   }
 
-  Widget _quickBar(ColorScheme scheme) {
-    return Row(
-      children: [
-        OutlinedButton.icon(
-          onPressed: _insertCheckbox,
-          icon: const Text('☑'),
-          label: const Text('Checkbox'),
-        ),
-        const SizedBox(width: 8),
-        OutlinedButton.icon(
-          onPressed: () => _insertAtCursor('@'),
-          icon: const Text('@'),
-          label: const Text('Project'),
-        ),
-        const SizedBox(width: 8),
-        OutlinedButton.icon(
-          onPressed: () => _insertAtCursor('#'),
-          icon: const Text('#'),
-          label: const Text('Section'),
-        ),
-      ],
+  Widget _quickBar() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          OutlinedButton.icon(
+            onPressed: _insertCheckbox,
+            icon: const Icon(Icons.check_box_outlined, size: 18),
+            label: const Text('Checkbox'),
+          ),
+          const SizedBox(width: 8),
+          OutlinedButton.icon(
+            onPressed: () => _insertAtCursor('@'),
+            icon: const Text('@'),
+            label: const Text('Project'),
+          ),
+          const SizedBox(width: 8),
+          OutlinedButton.icon(
+            onPressed: () => _insertAtCursor('#'),
+            icon: const Text('#'),
+            label: const Text('Section'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -557,7 +554,7 @@ class CaptureScreenState extends State<CaptureScreen> {
                   if (picked != null) setState(() => _eventDate = picked);
                 },
                 child: Text(
-                  'Дата: ${Backend.isoOf(_eventDate)}',
+                  'Date: ${Backend.isoOf(_eventDate)}',
                   style: mono(context),
                 ),
               ),
@@ -581,7 +578,7 @@ class CaptureScreenState extends State<CaptureScreen> {
             Expanded(
               child: Center(
                 child: Text(
-                  'Время: ${_fmtTime(_eventTime)}',
+                  'Time: ${_fmtTime(_eventTime)}',
                   style: mono(context, size: 14),
                 ),
               ),
@@ -614,7 +611,7 @@ class CaptureScreenState extends State<CaptureScreen> {
                 controller: _durationManual,
                 style: mono(context),
                 decoration: const InputDecoration(
-                  labelText: 'Длит',
+                  labelText: 'Duration',
                   isDense: true,
                 ),
                 onChanged: (_) => setState(() {}),
@@ -625,32 +622,6 @@ class CaptureScreenState extends State<CaptureScreen> {
         const SizedBox(height: 12),
         _prioritySegmented(),
       ],
-    );
-  }
-}
-
-/// Grey when the daemon is off, green when it syncs.
-class _SyncDot extends StatelessWidget {
-  const _SyncDot({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<bool>(
-      future: Syncthing.isRunning(),
-      builder: (context, snap) => InkWell(
-        onTap: onTap,
-        customBorder: const CircleBorder(),
-        child: Padding(
-          padding: const EdgeInsets.all(4),
-          child: Icon(
-            Icons.circle,
-            size: 12,
-            color: snap.data == true ? Colors.green : Colors.grey,
-          ),
-        ),
-      ),
     );
   }
 }

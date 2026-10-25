@@ -7,6 +7,7 @@ on a task match.
 
 - `android-native`: FRB bridge, Syncthing service lifecycle, native Kotlin, reminders and alarms.
 - `pre-commit-quality-review`: pre-commit triage — skip mechanics, review only responsibility changes.
+- `ui-ux`: user-visible UI rules — theme-adaptive text, Material icons only, English only, empty by default.
 
 ## Authoring new ones
 
