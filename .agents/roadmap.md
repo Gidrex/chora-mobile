@@ -11,7 +11,7 @@ How to work a task:
 
 ## Phase 0 — guardrails
 
-- [ ] **T0.1 Strict analyzer.** Replace `analysis_options.yaml` with flutter_lints +
+- [x] **T0.1 Strict analyzer.** Replace `analysis_options.yaml` with flutter_lints +
   `strict-casts`, `strict-inference`, `strict-raw-types`, exclude `lib/src/rust/**`, and rules:
   `always_declare_return_types avoid_dynamic_calls avoid_slow_async_io avoid_void_async cancel_subscriptions
   close_sinks discarded_futures prefer_const_constructors prefer_const_declarations prefer_final_locals

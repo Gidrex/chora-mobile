@@ -4,7 +4,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:timezone/data/latest_all.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 
-import 'backend.dart';
+import '../backend.dart';
 
 /// Reminders before events + optional system alarm intents.
 class Reminders {

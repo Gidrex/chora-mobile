@@ -78,22 +78,30 @@ flutter:
   # For details regarding adding assets from package dependencies, see
   # https://flutter.dev/to/asset-from-package
 
-  # To add custom fonts to your application, add a fonts section here,
-  # in this "flutter" section. Each entry in this list should have a
-  # "family" key with the font family name, and a "fonts" key with a
-  # list giving the asset and other descriptors for the font. For
-  # example:
-  # fonts:
-  #   - family: Schyler
-  #     fonts:
-  #       - asset: fonts/Schyler-Regular.ttf
-  #       - asset: fonts/Schyler-Italic.ttf
-  #         style: italic
-  #   - family: Trajan Pro
-  #     fonts:
-  #       - asset: fonts/TrajanPro.ttf
-  #       - asset: fonts/TrajanPro_Bold.ttf
-  #         weight: 700
-  #
-  # For details regarding fonts from package dependencies,
-  # see https://flutter.dev/to/font-from-package
+  # Bundled offline fonts (T0.2): regular + semibold per family, full
+  # latin + cyrillic coverage, no runtime fetching (no INTERNET perm).
+  fonts:
+    - family: Onest
+      fonts:
+        - asset: assets/fonts/Onest-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Onest-SemiBold.ttf
+          weight: 600
+    - family: Golos Text
+      fonts:
+        - asset: assets/fonts/GolosText-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/GolosText-SemiBold.ttf
+          weight: 600
+    - family: Martian Mono
+      fonts:
+        - asset: assets/fonts/MartianMono-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/MartianMono-SemiBold.ttf
+          weight: 600
+    - family: IBM Plex Mono
+      fonts:
+        - asset: assets/fonts/IBMPlexMono-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/IBMPlexMono-SemiBold.ttf
+          weight: 600

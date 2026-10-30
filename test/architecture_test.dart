@@ -10,7 +10,6 @@ const _ioLayers = ['lib/backend.dart', 'lib/data/', 'lib/platform/'];
 
 const _ioBaseline = {
   'lib/main.dart',
-  'lib/notifications.dart',
   'lib/screens/capture.dart',
   'lib/screens/events.dart',
   'lib/screens/notes.dart',

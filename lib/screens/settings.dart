@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import '../app_state.dart';
 import '../auth.dart';
 import '../backend.dart';
-import '../storage_access.dart';
+import '../platform/storage_access.dart';
 import '../ui/theme_helpers.dart';
 import '../ui/widgets.dart';
 

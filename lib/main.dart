@@ -2,12 +2,14 @@ import 'dart:async';
 
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app_state.dart';
 import 'auth.dart';
+import 'app/app_scope.dart';
 import 'backend.dart';
-import 'notifications.dart';
+import 'platform/notifications.dart';
 import 'screens/capture.dart';
 import 'screens/events.dart';
 import 'screens/notes.dart';
@@ -17,6 +19,8 @@ import 'theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Fonts are bundled (assets/fonts); never fetch at runtime (T0.2).
+  GoogleFonts.config.allowRuntimeFetching = false;
   final prefs = await SharedPreferences.getInstance();
   final state = AppState(prefs);
   try {
@@ -97,7 +101,10 @@ class _ChoraAppState extends State<ChoraApp> {
             theme: themed(lightDynamic, Brightness.light),
             darkTheme: themed(darkDynamic, Brightness.dark),
             themeMode: widget.state.themeMode,
-            home: _Gate(state: widget.state),
+            home: AppScope(
+              state: widget.state,
+              child: _Gate(state: widget.state),
+            ),
           );
         },
       ),

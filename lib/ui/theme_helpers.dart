@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 /// Per-preset accent set for event capsules (borders, dots, glows).
 /// The only non-scheme colors in the UI; everything reads them from here.
@@ -27,8 +26,10 @@ class EventPalette extends ThemeExtension<EventPalette> {
 
 /// Mono style for paths, levels, times and autocomplete (SPEC typography rule).
 TextStyle mono(BuildContext context, {double? size}) {
-  final base = Theme.of(context).textTheme.bodyMedium;
-  return GoogleFonts.ibmPlexMono(textStyle: base, fontSize: size ?? 12.5);
+  return Theme.of(context).textTheme.bodyMedium!.copyWith(
+    fontFamily: 'IBM Plex Mono',
+    fontSize: size ?? 12.5,
+  );
 }
 
 /// Small metadata badge: `09:00`, `45m`, `[restricted]`.

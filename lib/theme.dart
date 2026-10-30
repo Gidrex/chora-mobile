@@ -1,6 +1,5 @@
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import 'ui/theme_helpers.dart';
 
@@ -212,12 +211,11 @@ ThemeData buildTheme({
   // argument bakes in light (black) text colors, unreadable on dark surfaces.
   final TextTheme fallback =
       (dark ? ThemeData.dark() : ThemeData.light()).textTheme;
-  final TextTheme base = switch (fontName) {
-    'Golos Text' => GoogleFonts.golosTextTextTheme(fallback),
-    'Martian Mono' => GoogleFonts.martianMonoTextTheme(fallback),
-    'IBM Plex Mono' => GoogleFonts.ibmPlexMonoTextTheme(fallback),
-    _ => GoogleFonts.onestTextTheme(fallback),
-  };
+  // Bundled offline families (assets/fonts, no runtime fetching).
+  const families = {'Onest', 'Golos Text', 'Martian Mono', 'IBM Plex Mono'};
+  final TextTheme base = fallback.apply(
+    fontFamily: families.contains(fontName) ? fontName : 'Onest',
+  );
 
   return ThemeData(
     colorScheme: scheme,

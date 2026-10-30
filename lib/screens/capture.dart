@@ -6,7 +6,7 @@ import 'package:flutter/services.dart';
 import '../app_state.dart';
 import '../auth.dart';
 import '../backend.dart';
-import '../notifications.dart';
+import '../platform/notifications.dart';
 import '../ui/theme_helpers.dart';
 import '../ui/widgets.dart';
 import 'bento_tile.dart';

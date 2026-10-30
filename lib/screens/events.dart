@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../app_state.dart';
 import '../backend.dart';
-import '../notifications.dart';
+import '../platform/notifications.dart';
 import '../ui/theme_helpers.dart';
 import 'weekday_header.dart';
 

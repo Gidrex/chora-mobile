@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:local_auth/local_auth.dart';
+import 'platform/biometrics.dart';
 
 import 'app_state.dart';
 
@@ -10,7 +9,7 @@ Future<bool> unlock(
   AppState state, {
   required String reason,
 }) async {
-  if (state.biometricEnabled && await _biometric(context, state, reason)) {
+  if (state.biometricEnabled && await tryBiometrics(reason)) {
     return true;
   }
   if (!context.mounted) return false;
@@ -26,24 +25,6 @@ Future<bool> unlock(
   if (!context.mounted) return false;
   return (await _pinSheet<bool>(context, state, reason, allowCancel: true)) ??
       false;
-}
-
-Future<bool> _biometric(
-  BuildContext context,
-  AppState state,
-  String reason,
-) async {
-  try {
-    final auth = LocalAuthentication();
-    if (!await auth.isDeviceSupported()) return false;
-    if (!await auth.canCheckBiometrics) return false;
-    return await auth.authenticate(
-      localizedReason: reason,
-      biometricOnly: true,
-    );
-  } on PlatformException {
-    return false;
-  }
 }
 
 /// Returns entered PIN (setup mode) or bool (check mode).
