@@ -1,4 +1,4 @@
-import 'package:chora_mobile/app_state.dart';
+import 'package:chora_mobile/data/settings_store.dart';
 import 'package:chora_mobile/backend.dart';
 import 'package:chora_mobile/features/capture/capture_screen.dart';
 import 'package:chora_mobile/app/app_scope.dart';
@@ -14,7 +14,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'test_backend.dart';
 
-Widget _wrap(Widget child, AppState state) {
+Widget _wrap(Widget child, SettingsStore state) {
   return AppScope(
     state: state,
     notes: BridgeNotesRepository(),
@@ -34,7 +34,7 @@ Widget _wrap(Widget child, AppState state) {
 
 /// Pushes [screen] from a home button so back-pop can be observed.
 /// Screens resolve their controllers through [AppScope].
-Widget _pushed(Widget screen, AppState state) {
+Widget _pushed(Widget screen, SettingsStore state) {
   return _wrap(
     Scaffold(
       body: Builder(
@@ -61,7 +61,10 @@ void main() {
   testWidgets('capture save disabled when empty, enabled with text', (
     tester,
   ) async {
-    final state = AppState(await SharedPreferences.getInstance());
+    final state = SettingsStore(
+      await SharedPreferences.getInstance(),
+      AppearanceSettings(await SharedPreferences.getInstance()),
+    );
     await tester.pumpWidget(
       _wrap(CaptureScreen(state: state, onSaved: () {}), state),
     );
@@ -83,7 +86,10 @@ void main() {
   testWidgets('capture back with draft shows the discard dialog', (
     tester,
   ) async {
-    final state = AppState(await SharedPreferences.getInstance());
+    final state = SettingsStore(
+      await SharedPreferences.getInstance(),
+      AppearanceSettings(await SharedPreferences.getInstance()),
+    );
     await tester.pumpWidget(
       _pushed(CaptureScreen(state: state, onSaved: () {}), state),
     );
@@ -109,7 +115,10 @@ void main() {
         newBody: '# Shopping\n\n- [ ] Milk\n',
       ),
     );
-    final state = AppState(await SharedPreferences.getInstance());
+    final state = SettingsStore(
+      await SharedPreferences.getInstance(),
+      AppearanceSettings(await SharedPreferences.getInstance()),
+    );
     const file = NoteFileDto(
       relPath: 'home/shopping.md',
       fileName: 'shopping.md',
@@ -154,7 +163,10 @@ void main() {
         newBody: '# Groceries\n\n- [ ] Milk\n',
       ),
     );
-    final state = AppState(await SharedPreferences.getInstance());
+    final state = SettingsStore(
+      await SharedPreferences.getInstance(),
+      AppearanceSettings(await SharedPreferences.getInstance()),
+    );
     const file = NoteFileDto(
       relPath: 'home/groceries.md',
       fileName: 'groceries.md',

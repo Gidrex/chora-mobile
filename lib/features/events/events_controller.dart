@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
-import '../../app_state.dart';
+import '../../data/settings_store.dart';
 import '../../data/events_repository.dart';
 import '../../data/models.dart';
 import '../../data/notes_repository.dart';
@@ -17,7 +17,7 @@ class EventsController extends ChangeNotifier {
   }
 
   final EventsRepository _repo;
-  final AppState _state;
+  final SettingsStore _state;
   bool _disposed = false;
 
   DateTime month = DateTime(DateTime.now().year, DateTime.now().month);
@@ -35,7 +35,7 @@ class EventsController extends ChangeNotifier {
     notice = null;
   }
 
-  AppState get state => _state;
+  SettingsStore get state => _state;
 
   Future<void> reload() async {
     await Future.wait([loadMonth(), loadRepeatables()]);
@@ -96,7 +96,7 @@ class EventsController extends ChangeNotifier {
     );
     await Reminders.maybeAutoAlarm(
       enabled: _state.autoAlarm,
-      mode: _state.alarmMode,
+      mode: _state.alarmMode.name,
       beforeMin: _state.alarmBeforeMin,
       event: dto,
     );

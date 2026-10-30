@@ -61,9 +61,11 @@ How to work a task:
 - [x] **T2.4 Events.** `EventsRepository` (month grid cached per month, day events, repeatables, revision),
   `EventsController`; split into `features/events/widgets/{calendar_grid,day_sheet,event_list,event_form,
   repeatable_panel}.dart`. Accept: every file <= 300 lines, baseline entries gone.
-- [ ] **T2.5 Settings.** `SettingsStore` with typed enums; appearance split so only it rebuilds
+- [x] **T2.5 Settings.** `SettingsStore` with typed enums; appearance split so only it rebuilds
   `MaterialApp`; `ThemeData` cached. Conflict resolution and demo seeding go through Rust (C10).
   Accept: toggling "Square cells" does not rebuild `MaterialApp` (debug print or test).
+- [ ] **T2.7 C10 handoff.** Conflict resolution (`settings.dart`) and demo seeding (`backend.dart`) still touch files from Dart; move them into `api.rs` once the `chora`-side C10 task lands (tracked in `.agents/backend-tasks.md`).
+
 - [ ] **T2.6 Shell.** Replace `GlobalKey<State>` reloads in `main.dart` with repository revisions;
   `invalidate()` on resume. Accept: `_globalStateKeyBaseline` and `main.dart` io baseline gone; switching tabs
   with no writes makes zero bridge calls.

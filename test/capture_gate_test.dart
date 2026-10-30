@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:chora_mobile/app_state.dart';
+import 'package:chora_mobile/data/settings_store.dart';
 import 'package:chora_mobile/app/app_scope.dart';
 import 'package:chora_mobile/data/capture_repository.dart';
 import 'package:chora_mobile/data/events_repository.dart';
@@ -23,8 +23,11 @@ void main() {
   });
 
   testWidgets('gated file hides headers until unlocked', (tester) async {
-    final state = AppState(await SharedPreferences.getInstance());
-    await state.setSecurityThreshold('restricted');
+    final state = SettingsStore(
+      await SharedPreferences.getInstance(),
+      AppearanceSettings(await SharedPreferences.getInstance()),
+    );
+    await state.setSecurityThreshold(SecurityThreshold.restricted);
     await tester.pumpWidget(
       AppScope(
         state: state,

@@ -3,7 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
-import '../app_state.dart';
+import '../data/settings_store.dart';
 import '../auth.dart';
 import '../backend.dart';
 import '../platform/storage_access.dart';
@@ -16,12 +16,10 @@ class SettingsScreen extends StatefulWidget {
     super.key,
     required this.state,
     required this.onRootChanged,
-    required this.onAppearanceChanged,
   });
 
-  final AppState state;
+  final SettingsStore state;
   final Future<void> Function() onRootChanged;
-  final VoidCallback onAppearanceChanged;
 
   @override
   State<SettingsScreen> createState() => SettingsScreenState();
@@ -31,7 +29,7 @@ class SettingsScreenState extends State<SettingsScreen> {
   List<String> _conflicts = [];
   bool _hasPin = false;
   bool _hasAccess = false;
-  String _policy = 'backlog';
+  OldEventPolicy _policy = OldEventPolicy.backlog;
   late final AppLifecycleListener _resumed;
 
   @override
@@ -104,25 +102,19 @@ class SettingsScreenState extends State<SettingsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text('Font'),
-                    RadioGroup<String>(
-                      groupValue: s.fontName,
+                    RadioGroup<FontChoice>(
+                      groupValue: s.appearance.fontChoice,
                       onChanged: (v) async {
                         if (v == null) return;
-                        await s.setFontName(v);
-                        widget.onAppearanceChanged();
+                        await s.appearance.setFontChoice(v);
                       },
                       child: Column(
                         children: [
-                          for (final font in [
-                            'Onest',
-                            'Golos Text',
-                            'Martian Mono',
-                            'IBM Plex Mono',
-                          ])
-                            RadioListTile<String>(
+                          for (final font in FontChoice.values)
+                            RadioListTile<FontChoice>(
                               dense: true,
                               contentPadding: EdgeInsets.zero,
-                              title: Text(font),
+                              title: Text(font.family),
                               value: font,
                             ),
                         ],
@@ -250,15 +242,25 @@ class SettingsScreenState extends State<SettingsScreen> {
               EvenRow(
                 icon: Icons.history,
                 title: 'Old events',
-                trailing: DropdownButton<String>(
+                trailing: DropdownButton<OldEventPolicy>(
                   value: _policy,
                   underline: const SizedBox.shrink(),
                   items: const [
-                    DropdownMenuItem(value: 'nothing', child: Text('Nothing')),
-                    DropdownMenuItem(value: 'backlog', child: Text('Backlog')),
-                    DropdownMenuItem(value: 'delete', child: Text('Delete')),
+                    DropdownMenuItem(
+                      value: OldEventPolicy.nothing,
+                      child: Text('Nothing'),
+                    ),
+                    DropdownMenuItem(
+                      value: OldEventPolicy.backlog,
+                      child: Text('Backlog'),
+                    ),
+                    DropdownMenuItem(
+                      value: OldEventPolicy.delete,
+                      child: Text('Delete'),
+                    ),
                   ],
-                  onChanged: (v) => setState(() => _policy = v ?? 'backlog'),
+                  onChanged: (v) =>
+                      setState(() => _policy = v ?? OldEventPolicy.backlog),
                 ),
               ),
               _pad(
@@ -271,7 +273,7 @@ class SettingsScreenState extends State<SettingsScreen> {
                         try {
                           final summary = await sweepOldEvents(
                             rootDir: Backend.root,
-                            policy: _policy,
+                            policy: _policy.name,
                           );
                           _snack(summary);
                         } catch (e) {
@@ -305,51 +307,39 @@ class SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _presetButtons(AppState s) {
+  Widget _presetButtons(SettingsStore s) {
     return Wrap(
       spacing: 8,
       children: [
-        for (final entry in {
-          'system': 'System Dynamic',
-          'obsidian': 'Opal Obsidian',
-          'luma': 'Luma Warm',
-          'ambient': 'Ambient Night',
-          'mono': 'Monochrome Ink',
-        }.entries)
+        for (final preset in ThemePreset.values)
           ChoiceChip(
-            label: Text(entry.value),
-            selected: s.themePreset == entry.key,
-            onSelected: (_) async {
-              await s.setThemePreset(entry.key);
-              widget.onAppearanceChanged();
-            },
+            label: Text(preset.label),
+            selected: s.appearance.themePreset == preset,
+            onSelected: (_) => s.appearance.setThemePreset(preset),
           ),
       ],
     );
   }
 
-  Widget _modeButtons(AppState s) {
+  Widget _modeButtons(SettingsStore s) {
     return SegmentedButton<ThemeMode>(
       segments: const [
         ButtonSegment(value: ThemeMode.system, label: Text('System')),
         ButtonSegment(value: ThemeMode.light, label: Text('Light')),
         ButtonSegment(value: ThemeMode.dark, label: Text('Dark')),
       ],
-      selected: {s.themeMode},
-      onSelectionChanged: (v) async {
-        await s.setThemeMode(v.first);
-        widget.onAppearanceChanged();
-      },
+      selected: {s.appearance.themeMode},
+      onSelectionChanged: (v) => s.appearance.setThemeMode(v.first),
     );
   }
 
-  Widget _thresholdButtons(AppState s) {
+  Widget _thresholdButtons(SettingsStore s) {
     return Wrap(
       spacing: 8,
       children: [
-        for (final t in ['none', 'open', 'restricted', 'critical'])
+        for (final t in SecurityThreshold.values)
           ChoiceChip(
-            label: Text(t, style: mono(context)),
+            label: Text(t.name, style: mono(context)),
             selected: s.securityThreshold == t,
             onSelected: (_) => s.setSecurityThreshold(t),
           ),

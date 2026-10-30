@@ -1,4 +1,4 @@
-import 'package:chora_mobile/app_state.dart';
+import 'package:chora_mobile/data/settings_store.dart';
 import 'package:chora_mobile/data/models.dart';
 import 'package:chora_mobile/data/notes_repository.dart';
 import 'package:chora_mobile/features/notes/notes_controller.dart';
@@ -68,7 +68,10 @@ class FakeNotesRepository implements NotesRepository {
 void main() {
   test('reload fills projects and filter narrows them', () async {
     SharedPreferences.setMockInitialValues({});
-    final state = AppState(await SharedPreferences.getInstance());
+    final state = SettingsStore(
+      await SharedPreferences.getInstance(),
+      AppearanceSettings(await SharedPreferences.getInstance()),
+    );
     final controller = NotesController(
       FakeNotesRepository({'work/a.md': '# A'}),
       state,
@@ -86,7 +89,10 @@ void main() {
 
   test('open/save/toggle round-trip through the repository', () async {
     SharedPreferences.setMockInitialValues({});
-    final state = AppState(await SharedPreferences.getInstance());
+    final state = SettingsStore(
+      await SharedPreferences.getInstance(),
+      AppearanceSettings(await SharedPreferences.getInstance()),
+    );
     final repo = FakeNotesRepository({'work/a.md': '# A'});
     final controller = NotesController(repo, state);
     const file = NoteFileDto(
@@ -110,7 +116,10 @@ void main() {
 
   test('repository revision refreshes the controller', () async {
     SharedPreferences.setMockInitialValues({});
-    final state = AppState(await SharedPreferences.getInstance());
+    final state = SettingsStore(
+      await SharedPreferences.getInstance(),
+      AppearanceSettings(await SharedPreferences.getInstance()),
+    );
     final repo = FakeNotesRepository({'work/a.md': '# A'});
     final controller = NotesController(repo, state);
     await controller.reload();
@@ -124,7 +133,10 @@ void main() {
 
   test('load failure surfaces as error', () async {
     SharedPreferences.setMockInitialValues({});
-    final state = AppState(await SharedPreferences.getInstance());
+    final state = SettingsStore(
+      await SharedPreferences.getInstance(),
+      AppearanceSettings(await SharedPreferences.getInstance()),
+    );
     final controller = NotesController(FakeNotesRepository({}), state);
     await controller.open(
       const NoteFileDto(

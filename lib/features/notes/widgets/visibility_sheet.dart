@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 
-import '../../../app_state.dart';
+import '../../../data/settings_store.dart';
 import '../../../ui/theme_helpers.dart';
 
 /// "Visible projects" sheet. Hidden projects stay out of the list and out
-/// of Capture `@`-autocomplete. The screen rebuilds via [AppState] itself.
+/// of Capture `@`-autocomplete. The screen rebuilds via [SettingsStore] itself.
 Future<void> showVisibilitySheet(
   BuildContext context,
-  AppState state,
+  SettingsStore state,
   List<String> dirs,
 ) {
   final hidden = state.hiddenProjects.toSet();

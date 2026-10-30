@@ -66,8 +66,44 @@ List<Color> _dynamicAccents(ColorScheme s) {
   ];
 }
 
+/// Cache key for preset-built themes (dynamic schemes bypass the cache:
+/// [DynamicColorBuilder] hands out a fresh scheme object per build).
+({String preset, Brightness brightness, String fontName}) _cacheKey(
+  String preset,
+  Brightness brightness,
+  String fontName,
+) => (preset: preset, brightness: brightness, fontName: fontName);
+
+final _themeCache =
+    <({String preset, Brightness brightness, String fontName}), ThemeData>{};
+
 /// Preset color schemes. `system` is resolved from [DynamicColorBuilder].
 ThemeData buildTheme({
+  required String preset,
+  required Brightness brightness,
+  required String fontName,
+  ColorScheme? dynamicScheme,
+}) {
+  if (dynamicScheme == null) {
+    return _themeCache.putIfAbsent(
+      _cacheKey(preset, brightness, fontName),
+      () => _buildTheme(
+        preset: preset,
+        brightness: brightness,
+        fontName: fontName,
+        dynamicScheme: dynamicScheme,
+      ),
+    );
+  }
+  return _buildTheme(
+    preset: preset,
+    brightness: brightness,
+    fontName: fontName,
+    dynamicScheme: dynamicScheme,
+  );
+}
+
+ThemeData _buildTheme({
   required String preset,
   required Brightness brightness,
   required String fontName,

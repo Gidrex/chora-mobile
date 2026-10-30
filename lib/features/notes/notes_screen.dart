@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../app/app_scope.dart';
-import '../../app_state.dart';
+import '../../data/settings_store.dart';
 import '../../auth.dart';
 import '../../data/models.dart';
 import 'note_viewer_screen.dart';
@@ -15,7 +15,7 @@ import 'widgets/visibility_sheet.dart';
 class NotesScreen extends StatefulWidget {
   const NotesScreen({super.key, required this.state});
 
-  final AppState state;
+  final SettingsStore state;
 
   @override
   State<NotesScreen> createState() => NotesScreenState();

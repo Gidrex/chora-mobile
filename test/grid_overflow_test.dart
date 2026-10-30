@@ -1,4 +1,4 @@
-import 'package:chora_mobile/app_state.dart';
+import 'package:chora_mobile/data/settings_store.dart';
 import 'package:chora_mobile/data/events_repository.dart';
 import 'package:chora_mobile/features/events/events_controller.dart';
 import 'package:chora_mobile/features/events/widgets/calendar_grid.dart';
@@ -18,7 +18,10 @@ void main() {
   ) async {
     GoogleFonts.config.allowRuntimeFetching = false;
     SharedPreferences.setMockInitialValues({});
-    final state = AppState(await SharedPreferences.getInstance());
+    final state = SettingsStore(
+      await SharedPreferences.getInstance(),
+      AppearanceSettings(await SharedPreferences.getInstance()),
+    );
     final today = DateTime.now();
     final todayIso =
         '${today.year.toString().padLeft(4, '0')}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';

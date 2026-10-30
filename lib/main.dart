@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'app_state.dart';
+import 'data/settings_store.dart';
 import 'auth.dart';
 import 'app/app_scope.dart';
 import 'data/capture_repository.dart';
@@ -25,7 +25,7 @@ Future<void> main() async {
   // Fonts are bundled (assets/fonts); never fetch at runtime (T0.2).
   GoogleFonts.config.allowRuntimeFetching = false;
   final prefs = await SharedPreferences.getInstance();
-  final state = AppState(prefs);
+  final state = SettingsStore(prefs, AppearanceSettings(prefs));
   try {
     await Backend.init(state.rootDirOverride);
     await Reminders.init();
@@ -43,7 +43,7 @@ Future<void> main() async {
 class _BootError extends StatelessWidget {
   const _BootError({required this.state, required this.message});
 
-  final AppState state;
+  final SettingsStore state;
   final String message;
 
   @override
@@ -79,13 +79,13 @@ class _BootError extends StatelessWidget {
 class ChoraApp extends StatefulWidget {
   const ChoraApp({super.key, required this.state});
 
-  final AppState state;
+  final SettingsStore state;
 
   @override
-  State<ChoraApp> createState() => _ChoraAppState();
+  State<ChoraApp> createState() => _ChoraSettingsStore();
 }
 
-class _ChoraAppState extends State<ChoraApp> {
+class _ChoraSettingsStore extends State<ChoraApp> {
   late final _notesRepo = BridgeNotesRepository();
   late final _captureRepo = CaptureRepository();
   late final _eventsRepo = BridgeEventsRepository();
@@ -93,14 +93,14 @@ class _ChoraAppState extends State<ChoraApp> {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: widget.state,
+      listenable: widget.state.appearance,
       builder: (_, _) => DynamicColorBuilder(
         builder: (lightDynamic, darkDynamic) {
           ThemeData themed(ColorScheme? scheme, Brightness brightness) =>
               buildTheme(
-                preset: widget.state.themePreset,
+                preset: widget.state.appearance.themePreset.name,
                 brightness: brightness,
-                fontName: widget.state.fontName,
+                fontName: widget.state.appearance.fontChoice.family,
                 dynamicScheme: scheme,
               );
           return AppScope(
@@ -112,7 +112,7 @@ class _ChoraAppState extends State<ChoraApp> {
               title: 'Chora',
               theme: themed(lightDynamic, Brightness.light),
               darkTheme: themed(darkDynamic, Brightness.dark),
-              themeMode: widget.state.themeMode,
+              themeMode: widget.state.appearance.themeMode,
               home: _Gate(state: widget.state),
             ),
           );
@@ -126,7 +126,7 @@ class _ChoraAppState extends State<ChoraApp> {
 class _Gate extends StatefulWidget {
   const _Gate({required this.state});
 
-  final AppState state;
+  final SettingsStore state;
 
   @override
   State<_Gate> createState() => _GateState();
@@ -135,7 +135,8 @@ class _Gate extends StatefulWidget {
 class _GateState extends State<_Gate> {
   @override
   Widget build(BuildContext context) {
-    if (widget.state.securityThreshold == 'open' && !widget.state.appUnlocked) {
+    if (widget.state.securityThreshold == SecurityThreshold.open &&
+        !widget.state.appUnlocked) {
       return LockScreen(
         state: widget.state,
         onUnlocked: () => setState(() => widget.state.appUnlocked = true),
@@ -149,7 +150,7 @@ class _GateState extends State<_Gate> {
 class MainScaffold extends StatefulWidget {
   const MainScaffold({super.key, required this.state});
 
-  final AppState state;
+  final SettingsStore state;
 
   @override
   State<MainScaffold> createState() => _MainScaffoldState();
@@ -226,7 +227,6 @@ class _MainScaffoldState extends State<MainScaffold> {
                 key: _settingsKey,
                 state: widget.state,
                 onRootChanged: _reinitBackend,
-                onAppearanceChanged: () => setState(() {}),
               ),
             ],
           ),

@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'platform/biometrics.dart';
 
-import 'app_state.dart';
+import 'data/settings_store.dart';
 
 /// Biometric-or-PIN gate used before opening protected notes and at startup.
 Future<bool> unlock(
   BuildContext context,
-  AppState state, {
+  SettingsStore state, {
   required String reason,
 }) async {
   if (state.biometricEnabled && await tryBiometrics(reason)) {
@@ -30,7 +30,7 @@ Future<bool> unlock(
 /// Returns entered PIN (setup mode) or bool (check mode).
 Future<T?> _pinSheet<T>(
   BuildContext context,
-  AppState state,
+  SettingsStore state,
   String reason, {
   required bool allowCancel,
 }) {
@@ -43,7 +43,7 @@ Future<T?> _pinSheet<T>(
 }
 
 /// PIN setup sheet. Returns the chosen PIN.
-Future<String?> setupPin(BuildContext context, AppState state) {
+Future<String?> setupPin(BuildContext context, SettingsStore state) {
   return showModalBottomSheet<String>(
     context: context,
     builder: (_) =>
@@ -54,7 +54,7 @@ Future<String?> setupPin(BuildContext context, AppState state) {
 /// PIN check sheet. Returns true when the PIN matches.
 Future<bool?> checkPin(
   BuildContext context,
-  AppState state, {
+  SettingsStore state, {
   String reason = 'Enter PIN',
 }) {
   return showModalBottomSheet<bool>(
@@ -73,7 +73,7 @@ class _PinPad extends StatefulWidget {
     this.setup = false,
   });
 
-  final AppState state;
+  final SettingsStore state;
   final String reason;
   final bool setup;
 
@@ -205,7 +205,7 @@ class _PinPadState extends State<_PinPad> {
 class LockScreen extends StatefulWidget {
   const LockScreen({super.key, required this.state, required this.onUnlocked});
 
-  final AppState state;
+  final SettingsStore state;
   final VoidCallback onUnlocked;
 
   @override

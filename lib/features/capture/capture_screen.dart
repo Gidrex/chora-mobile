@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../app/app_scope.dart';
-import '../../app_state.dart';
+import '../../data/settings_store.dart';
 import '../../auth.dart';
 import '../../data/models.dart';
 import '../../domain/capture_text.dart';
@@ -21,7 +21,7 @@ import 'widgets/event_section.dart';
 class CaptureScreen extends StatefulWidget {
   const CaptureScreen({super.key, required this.state, required this.onSaved});
 
-  final AppState state;
+  final SettingsStore state;
   final VoidCallback onSaved;
 
   @override

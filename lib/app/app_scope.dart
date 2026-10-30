@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 
-import '../app_state.dart';
+import '../data/settings_store.dart';
 import '../data/capture_repository.dart';
 import '../data/events_repository.dart';
 import '../data/notes_repository.dart';
 
 /// Inherited hand-out for repositories and controllers (T2.2+).
-/// Today it carries [AppState]; screens keep constructor injection until
+/// Today it carries [SettingsStore]; screens keep constructor injection until
 /// the shell migration (T2.6) removes the cross-widget `GlobalKey` calls.
 class AppScope extends InheritedWidget {
   const AppScope({
@@ -18,12 +18,12 @@ class AppScope extends InheritedWidget {
     required super.child,
   });
 
-  final AppState state;
+  final SettingsStore state;
   final NotesRepository notes;
   final CaptureRepository capture;
   final EventsRepository events;
 
-  static AppState of(BuildContext context) => scopeOf(context).state;
+  static SettingsStore of(BuildContext context) => scopeOf(context).state;
   static NotesRepository notesOf(BuildContext context) =>
       scopeOf(context).notes;
 

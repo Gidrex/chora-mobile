@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../app/app_scope.dart';
-import '../../app_state.dart';
+import '../../data/settings_store.dart';
 import '../../data/models.dart';
 import '../../platform/notifications.dart';
 import 'events_controller.dart';
@@ -17,7 +17,7 @@ import 'widgets/weekday_header.dart';
 class EventsScreen extends StatefulWidget {
   const EventsScreen({super.key, required this.state});
 
-  final AppState state;
+  final SettingsStore state;
 
   @override
   State<EventsScreen> createState() => EventsScreenState();
@@ -222,14 +222,17 @@ class EventsScreenState extends State<EventsScreen> {
               ),
               ListTile(
                 title: const Text('Alarm for'),
-                trailing: DropdownButton<String>(
+                trailing: DropdownButton<AlarmMode>(
                   value: s.alarmMode,
                   items: const [
                     DropdownMenuItem(
-                      value: 'first',
+                      value: AlarmMode.first,
                       child: Text('First event of the day'),
                     ),
-                    DropdownMenuItem(value: 'tag', child: Text('#alarm tag')),
+                    DropdownMenuItem(
+                      value: AlarmMode.tag,
+                      child: Text('#alarm tag'),
+                    ),
                   ],
                   onChanged: (v) async {
                     if (v == null) return;

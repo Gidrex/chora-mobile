@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../../app_state.dart';
+import '../../data/settings_store.dart';
 import '../../data/capture_repository.dart';
 import '../../data/models.dart';
 import '../../data/notes_repository.dart';
@@ -18,7 +18,7 @@ class CaptureController extends ChangeNotifier {
   }
 
   final CaptureRepository _repo;
-  final AppState _state;
+  final SettingsStore _state;
   bool _disposed = false;
 
   List<ProjectDto> _projects = const [];
@@ -44,7 +44,7 @@ class CaptureController extends ChangeNotifier {
     notice = null;
   }
 
-  AppState get state => _state;
+  SettingsStore get state => _state;
 
   /// Visible files minus projects hidden in Notes settings.
   List<NoteFileDto> get visibleFiles {
@@ -226,7 +226,7 @@ class CaptureController extends ChangeNotifier {
         );
         await Reminders.maybeAutoAlarm(
           enabled: _state.autoAlarm,
-          mode: _state.alarmMode,
+          mode: _state.alarmMode.name,
           beforeMin: _state.alarmBeforeMin,
           event: EventDto(
             index: BigInt.zero,

@@ -1,4 +1,4 @@
-import 'package:chora_mobile/app_state.dart';
+import 'package:chora_mobile/data/settings_store.dart';
 import 'package:chora_mobile/data/events_repository.dart';
 import 'package:chora_mobile/data/models.dart';
 import 'package:chora_mobile/data/notes_repository.dart';
@@ -92,7 +92,10 @@ EventDto _event(String title) => EventDto(
 void main() {
   test('reload fills month and repeatables', () async {
     SharedPreferences.setMockInitialValues({});
-    final state = AppState(await SharedPreferences.getInstance());
+    final state = SettingsStore(
+      await SharedPreferences.getInstance(),
+      AppearanceSettings(await SharedPreferences.getInstance()),
+    );
     final controller = EventsController(FakeEventsRepository({}), state);
     await controller.reload();
     expect(controller.monthLoading, isFalse);
@@ -103,7 +106,10 @@ void main() {
 
   test('setRepeatDay reloads and upsert renumbers', () async {
     SharedPreferences.setMockInitialValues({});
-    final state = AppState(await SharedPreferences.getInstance());
+    final state = SettingsStore(
+      await SharedPreferences.getInstance(),
+      AppearanceSettings(await SharedPreferences.getInstance()),
+    );
     final repo = FakeEventsRepository({});
     final controller = EventsController(repo, state);
     await controller.reload();
@@ -130,7 +136,10 @@ void main() {
 
   test('revision triggers reload', () async {
     SharedPreferences.setMockInitialValues({});
-    final state = AppState(await SharedPreferences.getInstance());
+    final state = SettingsStore(
+      await SharedPreferences.getInstance(),
+      AppearanceSettings(await SharedPreferences.getInstance()),
+    );
     final repo = FakeEventsRepository({});
     final controller = EventsController(repo, state);
     await controller.reload();

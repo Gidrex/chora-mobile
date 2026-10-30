@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
-import '../../app_state.dart';
+import '../../data/settings_store.dart';
 import '../../data/models.dart';
 import '../../data/notes_repository.dart';
 
@@ -15,7 +15,7 @@ class NotesController extends ChangeNotifier {
   }
 
   final NotesRepository _repo;
-  final AppState _state;
+  final SettingsStore _state;
   bool _disposed = false;
 
   /// notifyListeners that survives async gaps racing with dispose.
@@ -40,7 +40,7 @@ class NotesController extends ChangeNotifier {
     notice = null;
   }
 
-  AppState get state => _state;
+  SettingsStore get state => _state;
 
   /// All project dirs (for the visibility sheet), including hidden ones.
   List<String> get allDirs =>
