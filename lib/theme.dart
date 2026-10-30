@@ -2,29 +2,7 @@ import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-/// Per-preset accent set for event capsules (borders, dots, glows).
-/// The only non-scheme colors in the UI; everything reads them from here.
-@immutable
-class EventPalette extends ThemeExtension<EventPalette> {
-  const EventPalette(this.accents);
-
-  final List<Color> accents;
-
-  @override
-  EventPalette copyWith({List<Color>? accents}) =>
-      EventPalette(accents ?? this.accents);
-
-  @override
-  EventPalette lerp(ThemeExtension<EventPalette>? other, double t) {
-    if (other is! EventPalette || other.accents.length != accents.length) {
-      return this;
-    }
-    return EventPalette([
-      for (var i = 0; i < accents.length; i++)
-        Color.lerp(accents[i], other.accents[i], t)!,
-    ]);
-  }
-}
+import 'ui/theme_helpers.dart';
 
 /// Mid-tone accents readable on both light and dark surfaces.
 const _obsidianAccents = [
@@ -61,6 +39,16 @@ const _monoLightAccents = [
   Color(0xFF5C5C5C),
   Color(0xFF737373),
   Color(0xFF8A8A8A),
+];
+
+/// Moonlit pastels on charcoal: readable on both light and dark surfaces.
+const _ambientAccents = [
+  Color(0xFF3D9A78),
+  Color(0xFF4A7DC2),
+  Color(0xFFD97A4A),
+  Color(0xFF8B7BD0),
+  Color(0xFFC65D7E),
+  Color(0xFFB78A2E),
 ];
 
 List<Color> _dynamicAccents(ColorScheme s) {
@@ -183,6 +171,38 @@ ThemeData buildTheme({
               surfaceContainerHighest: Color(0xFFE2E2E2),
               outlineVariant: Color(0xFF444444),
             ),
+    'ambient' =>
+      dark
+          ? const ColorScheme.dark(
+              primary: Color(0xFFF2C66D),
+              onPrimary: Color(0xFF17130A),
+              primaryContainer: Color(0xFF3A2E18),
+              onPrimaryContainer: Color(0xFFFFDFA0),
+              secondary: Color(0xFFB9A7E6),
+              onSecondary: Color(0xFF17141F),
+              secondaryContainer: Color(0xFF2A2638),
+              onSecondaryContainer: Color(0xFFD5C9F5),
+              surface: Color(0xFF101014),
+              surfaceContainer: Color(0xFF17181E),
+              surfaceContainerHigh: Color(0xFF1E2028),
+              surfaceContainerHighest: Color(0xFF282B35),
+              outlineVariant: Color(0xFF2E323D),
+            )
+          : const ColorScheme.light(
+              primary: Color(0xFF7A5A17),
+              onPrimary: Colors.white,
+              primaryContainer: Color(0xFFF3DFA8),
+              onPrimaryContainer: Color(0xFF3A2C0D),
+              secondary: Color(0xFF5B4D8F),
+              onSecondary: Colors.white,
+              secondaryContainer: Color(0xFFE2D9FA),
+              onSecondaryContainer: Color(0xFF2A2340),
+              surface: Color(0xFFF5F2EA),
+              surfaceContainer: Color(0xFFFFFFFF),
+              surfaceContainerHigh: Color(0xFFEDE9DD),
+              surfaceContainerHighest: Color(0xFFE2DCCC),
+              outlineVariant: Color(0xFFD8D2C2),
+            ),
     _ =>
       dynamicScheme ??
           ColorScheme.fromSeed(seedColor: Colors.teal, brightness: brightness),
@@ -208,6 +228,7 @@ ThemeData buildTheme({
       EventPalette(switch (preset) {
         'obsidian' => _obsidianAccents,
         'luma' => _lumaAccents,
+        'ambient' => _ambientAccents,
         'mono' => dark ? _monoDarkAccents : _monoLightAccents,
         _ => _dynamicAccents(scheme),
       }),
@@ -231,51 +252,5 @@ ThemeData buildTheme({
         ),
       ),
     ),
-  );
-}
-
-/// Mono style for paths, levels, times and autocomplete (SPEC typography rule).
-TextStyle mono(BuildContext context, {double? size}) {
-  final base = Theme.of(context).textTheme.bodyMedium;
-  return GoogleFonts.ibmPlexMono(textStyle: base, fontSize: size ?? 12.5);
-}
-
-/// Small metadata badge: `09:00`, `45m`, `[restricted]`.
-Widget badge(
-  BuildContext context,
-  String text, {
-  Color? color,
-  Widget? leading,
-}) {
-  final scheme = Theme.of(context).colorScheme;
-  return Container(
-    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-    decoration: BoxDecoration(
-      color: color ?? scheme.surfaceContainerHighest,
-      borderRadius: BorderRadius.circular(6),
-    ),
-    child: Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (leading != null) ...[leading, const SizedBox(width: 2)],
-        Text(text, style: mono(context, size: 11)),
-      ],
-    ),
-  );
-}
-
-/// Security badge color: open neutral, restricted tertiary, critical error.
-Widget securityBadge(BuildContext context, String level) {
-  final scheme = Theme.of(context).colorScheme;
-  final Color? color = switch (level) {
-    'restricted' => scheme.tertiary.withValues(alpha: 0.25),
-    'critical' => scheme.error.withValues(alpha: 0.25),
-    _ => null,
-  };
-  return badge(
-    context,
-    '[$level]',
-    color: color,
-    leading: level == 'critical' ? const Icon(Icons.lock, size: 11) : null,
   );
 }

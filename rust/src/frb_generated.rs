@@ -28,7 +28,7 @@
 // Section: imports
 
 use flutter_rust_bridge::for_generated::byteorder::{NativeEndian, ReadBytesExt, WriteBytesExt};
-use flutter_rust_bridge::for_generated::{Lifetimeable, Lockable, transform_result_dco};
+use flutter_rust_bridge::for_generated::{transform_result_dco, Lifetimeable, Lockable};
 use flutter_rust_bridge::{Handler, IntoIntoDart};
 
 // Section: boilerplate
@@ -594,7 +594,7 @@ fn wire__crate__api__update_single_event_impl(
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
             let api_root_dir = <String>::sse_decode(&mut deserializer);
-            let api_date_iso = <String>::sse_decode(&mut deserializer);
+            let api_original_date_iso = <String>::sse_decode(&mut deserializer);
             let api_section_index = <usize>::sse_decode(&mut deserializer);
             let api_updated = <crate::api::EventDto>::sse_decode(&mut deserializer);
             deserializer.end();
@@ -603,7 +603,7 @@ fn wire__crate__api__update_single_event_impl(
                     (move || {
                         let output_ok = crate::api::update_single_event(
                             api_root_dir,
-                            api_date_iso,
+                            api_original_date_iso,
                             api_section_index,
                             api_updated,
                         )?;
@@ -1380,7 +1380,7 @@ mod io {
     use flutter_rust_bridge::for_generated::byteorder::{
         NativeEndian, ReadBytesExt, WriteBytesExt,
     };
-    use flutter_rust_bridge::for_generated::{Lifetimeable, Lockable, transform_result_dco};
+    use flutter_rust_bridge::for_generated::{transform_result_dco, Lifetimeable, Lockable};
     use flutter_rust_bridge::{Handler, IntoIntoDart};
 
     // Section: boilerplate
@@ -1404,7 +1404,7 @@ mod web {
     };
     use flutter_rust_bridge::for_generated::wasm_bindgen;
     use flutter_rust_bridge::for_generated::wasm_bindgen::prelude::*;
-    use flutter_rust_bridge::for_generated::{Lifetimeable, Lockable, transform_result_dco};
+    use flutter_rust_bridge::for_generated::{transform_result_dco, Lifetimeable, Lockable};
     use flutter_rust_bridge::{Handler, IntoIntoDart};
 
     // Section: boilerplate

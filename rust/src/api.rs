@@ -396,21 +396,34 @@ pub fn get_day_events(root_dir: String, date_iso: String) -> anyhow::Result<DayE
 }
 
 /// Rewrite only the `section_index`-th event section of a day file.
+/// When the updated event carries a different date, move it: remove the
+/// section from the old day and append it to the new one.
 pub fn update_single_event(
     root_dir: String,
-    date_iso: String,
+    original_date_iso: String,
     section_index: usize,
     updated: EventDto,
 ) -> anyhow::Result<()> {
     let store = Store::new(&root_dir);
-    let date = parse_date(&date_iso)?;
-    let day_path = store.day_path(date);
-    let text = std::fs::read_to_string(&day_path)
-        .with_context(|| format!("failed to read {}", day_path.display()))?;
+    let original = parse_date(&original_date_iso)?;
+    let date = parse_date(&updated.date_iso)?;
     let ev = dto_to_event(&updated, date)?;
-    let out = event::replace_section(&text, section_index, &ev)?;
-    std::fs::write(&day_path, out)
-        .with_context(|| format!("failed to write {}", day_path.display()))?;
+    if date == original {
+        let day_path = store.day_path(date);
+        let text = std::fs::read_to_string(&day_path)
+            .with_context(|| format!("failed to read {}", day_path.display()))?;
+        let out = event::replace_section(&text, section_index, &ev)?;
+        std::fs::write(&day_path, out)
+            .with_context(|| format!("failed to write {}", day_path.display()))?;
+        return Ok(());
+    }
+    let old_path = store.day_path(original);
+    let old_text = std::fs::read_to_string(&old_path)
+        .with_context(|| format!("failed to read {}", old_path.display()))?;
+    let out = event::remove_section(&old_text, section_index)?;
+    std::fs::write(&old_path, out)
+        .with_context(|| format!("failed to write {}", old_path.display()))?;
+    store.append_section(date, &event::render_section(&ev))?;
     Ok(())
 }
 
@@ -775,6 +788,43 @@ mod tests {
         let day = get_day_events(root, "2026-11-20".to_owned()).unwrap();
         assert_eq!(day.events.len(), 1);
         assert_eq!(day.events[0].title, "Early fixed");
+    }
+
+    #[test]
+    fn update_event_moves_across_days() {
+        let root = tmp_root();
+        init_storage(root.clone()).unwrap();
+        for (day, title, time) in [
+            ("2026-11-20", "A1", "09:00"),
+            ("2026-11-20", "A2", "10:00"),
+            ("2026-11-21", "B1", "08:00"),
+        ] {
+            create_event(
+                root.clone(),
+                EventDto {
+                    index: 0,
+                    title: title.to_owned(),
+                    date_iso: day.to_owned(),
+                    time_hhmm: time.to_owned(),
+                    duration_str: "30m".to_owned(),
+                    context: String::new(),
+                    is_repeatable: false,
+                },
+            )
+            .unwrap();
+        }
+        let day_a = get_day_events(root.clone(), "2026-11-20".to_owned()).unwrap();
+        assert_eq!(day_a.events.len(), 2);
+        let mut moved = day_a.events[1].clone();
+        moved.date_iso = "2026-11-21".to_owned();
+        update_single_event(root.clone(), "2026-11-20".to_owned(), 1, moved).unwrap();
+        let day_a = get_day_events(root.clone(), "2026-11-20".to_owned()).unwrap();
+        assert_eq!(day_a.events.len(), 1);
+        assert_eq!(day_a.events[0].title, "A1");
+        let day_b = get_day_events(root.clone(), "2026-11-21".to_owned()).unwrap();
+        assert_eq!(day_b.events.len(), 2);
+        assert_eq!(day_b.events[0].title, "B1");
+        assert_eq!(day_b.events[1].title, "A2");
     }
 
     #[test]

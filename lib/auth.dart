@@ -24,7 +24,8 @@ Future<bool> unlock(
     return false;
   }
   if (!context.mounted) return false;
-  return await _pinSheet(context, state, reason, allowCancel: true) ?? false;
+  return (await _pinSheet<bool>(context, state, reason, allowCancel: true)) ??
+      false;
 }
 
 Future<bool> _biometric(

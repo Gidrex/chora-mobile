@@ -144,7 +144,7 @@ abstract class RustLibApi extends BaseApi {
 
   Future<void> crateApiUpdateSingleEvent({
     required String rootDir,
-    required String dateIso,
+    required String originalDateIso,
     required BigInt sectionIndex,
     required EventDto updated,
   });
@@ -629,7 +629,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   @override
   Future<void> crateApiUpdateSingleEvent({
     required String rootDir,
-    required String dateIso,
+    required String originalDateIso,
     required BigInt sectionIndex,
     required EventDto updated,
   }) {
@@ -638,7 +638,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         callFfi: (port_) {
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_String(rootDir, serializer);
-          sse_encode_String(dateIso, serializer);
+          sse_encode_String(originalDateIso, serializer);
           sse_encode_usize(sectionIndex, serializer);
           sse_encode_box_autoadd_event_dto(updated, serializer);
           pdeCallFfi(
@@ -653,7 +653,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeErrorData: sse_decode_AnyhowException,
         ),
         constMeta: kCrateApiUpdateSingleEventConstMeta,
-        argValues: [rootDir, dateIso, sectionIndex, updated],
+        argValues: [rootDir, originalDateIso, sectionIndex, updated],
         apiImpl: this,
       ),
     );
@@ -661,7 +661,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateApiUpdateSingleEventConstMeta => const TaskConstMeta(
     debugName: "update_single_event",
-    argNames: ["rootDir", "dateIso", "sectionIndex", "updated"],
+    argNames: ["rootDir", "originalDateIso", "sectionIndex", "updated"],
   );
 
   @protected

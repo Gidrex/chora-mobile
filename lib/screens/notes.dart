@@ -1,10 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
-import 'package:flutter_markdown/flutter_markdown.dart';
 
 import '../app_state.dart';
 import '../auth.dart';
 import '../backend.dart';
-import '../theme.dart';
+import '../ui/theme_helpers.dart';
+import '../ui/widgets.dart';
+import 'note_blocks.dart';
 
 /// Projects accordion with filter, visibility settings and gated file open.
 class NotesScreen extends StatefulWidget {
@@ -27,7 +30,7 @@ class NotesScreenState extends State<NotesScreen> {
   void initState() {
     super.initState();
     _filter.addListener(() => setState(() {}));
-    reload();
+    unawaited(reload());
   }
 
   @override
@@ -73,7 +76,7 @@ class NotesScreenState extends State<NotesScreen> {
           IconButton(
             icon: const Icon(Icons.settings),
             tooltip: 'Visibility',
-            onPressed: () => _visibilitySheet(),
+            onPressed: _visibilitySheet,
           ),
         ],
       ),
@@ -209,16 +212,16 @@ class NotesScreenState extends State<NotesScreen> {
     if (!mounted) return;
     await Navigator.push(
       context,
-      MaterialPageRoute(
+      MaterialPageRoute<void>(
         builder: (_) => NoteViewer(state: widget.state, file: f),
       ),
     );
-    reload();
+    await reload();
   }
 
   Future<void> _visibilitySheet() async {
     final hidden = widget.state.hiddenProjects.toSet();
-    await showModalBottomSheet(
+    await showModalBottomSheet<void>(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setSheet) => SafeArea(
@@ -235,11 +238,8 @@ class NotesScreenState extends State<NotesScreen> {
                   title: Text(dir, style: mono(ctx)),
                   value: !hidden.contains(dir),
                   onChanged: (v) async {
-                    if (v) {
-                      hidden.remove(dir);
-                    } else {
-                      hidden.add(dir);
-                    }
+                    hidden.remove(dir);
+                    if (!v) hidden.add(dir);
                     await widget.state.setHiddenProjects(hidden.toList());
                     setSheet(() {});
                     setState(() {});
@@ -279,7 +279,12 @@ class _NoteViewerState extends State<NoteViewer> {
   void initState() {
     super.initState();
     _editor = TextEditingController();
-    _load();
+    _editor.addListener(_touch);
+    unawaited(_load());
+  }
+
+  void _touch() {
+    if (mounted) setState(() {});
   }
 
   @override
@@ -310,7 +315,10 @@ class _NoteViewerState extends State<NoteViewer> {
     }
   }
 
-  Future<void> _save() async {
+  /// Edits the user would lose by leaving.
+  bool get _dirty => _editing && _text != null && _editor.text != _text;
+
+  Future<bool> _save() async {
     try {
       await saveNoteFile(
         rootDir: Backend.root,
@@ -325,13 +333,16 @@ class _NoteViewerState extends State<NoteViewer> {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text('Saved')));
+        return true;
       }
+      return false;
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(Backend.errMsg(e))));
       }
+      return false;
     }
   }
 
@@ -359,100 +370,58 @@ class _NoteViewerState extends State<NoteViewer> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.file.fileName, style: mono(context, size: 15)),
-        actions: [
-          securityBadge(context, widget.file.security.name),
-          IconButton(
-            icon: Icon(_editing ? Icons.visibility : Icons.edit),
-            tooltip: _editing ? 'Preview' : 'Edit',
-            onPressed: _text == null
-                ? null
-                : () => setState(() => _editing = !_editing),
-          ),
-          if (_editing)
+    return PopScope(
+      canPop: !_dirty,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop || !_dirty) return;
+        final navigator = Navigator.of(context);
+        final choice = await confirmUnsavedEdits(context);
+        if (!mounted) return;
+        if (choice == DiscardChoice.save) {
+          if (await _save() && mounted) navigator.pop();
+        } else if (choice == DiscardChoice.discard) {
+          setState(() => _editor.text = _text ?? '');
+          if (mounted) navigator.pop();
+        }
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(widget.file.fileName, style: mono(context, size: 15)),
+          actions: [
+            securityBadge(context, widget.file.security.name),
             IconButton(
-              icon: const Icon(Icons.save),
-              tooltip: 'Save',
-              onPressed: _save,
+              icon: Icon(_editing ? Icons.visibility : Icons.edit),
+              tooltip: _editing ? 'Preview' : 'Edit',
+              onPressed: _text == null
+                  ? null
+                  : () => setState(() => _editing = !_editing),
             ),
-        ],
-      ),
-      body: _text == null
-          ? const Center(child: CircularProgressIndicator())
-          : _editing
-          ? Padding(
-              padding: const EdgeInsets.all(16),
-              child: TextField(
-                controller: _editor,
-                maxLines: null,
-                expands: true,
-                textAlignVertical: TextAlignVertical.top,
-                style: mono(context, size: 13),
-                decoration: const InputDecoration(border: OutlineInputBorder()),
+            if (_editing)
+              IconButton(
+                icon: const Icon(Icons.save),
+                tooltip: 'Save',
+                onPressed: _save,
               ),
-            )
-          : ListView(
-              padding: const EdgeInsets.all(16),
-              children: _blocks(_text!),
-            ),
-    );
-  }
-
-  /// Render markdown with natively tappable checkbox rows.
-  List<Widget> _blocks(String text) {
-    final lines = text.split('\n');
-    final out = <Widget>[];
-    final buffer = <String>[];
-    void flush() {
-      if (buffer.isEmpty) return;
-      out.add(
-        MarkdownBody(
-          data: buffer.join('\n'),
-          selectable: true,
-          styleSheet: MarkdownStyleSheet.fromTheme(
-            Theme.of(context),
-          ).copyWith(codeblockDecoration: null),
+          ],
         ),
-      );
-      buffer.clear();
-    }
-
-    final checkbox = RegExp(r'^(\s*)-\s\[([ xX])\]\s?(.*)$');
-    for (var i = 0; i < lines.length; i++) {
-      final match = checkbox.firstMatch(lines[i]);
-      if (match == null) {
-        buffer.add(lines[i]);
-        continue;
-      }
-      flush();
-      final indent = (match.group(1)!.length ~/ 2);
-      final checked = match.group(2) != ' ';
-      final label = match.group(3)!;
-      out.add(
-        Padding(
-          padding: EdgeInsets.only(left: indent * 20),
-          child: InkWell(
-            onTap: () => _toggle(i, checked),
-            borderRadius: BorderRadius.circular(8),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Checkbox(value: checked, onChanged: (_) => _toggle(i, checked)),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 12),
-                    child: MarkdownBody(data: label, selectable: false),
+        body: _text == null
+            ? const Center(child: CircularProgressIndicator())
+            : _editing
+            ? Padding(
+                padding: const EdgeInsets.all(16),
+                child: TextField(
+                  controller: _editor,
+                  maxLines: null,
+                  expands: true,
+                  textAlignVertical: TextAlignVertical.top,
+                  style: mono(context, size: 13),
+                  decoration: const InputDecoration(
+                    border: OutlineInputBorder(),
                   ),
                 ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
-    flush();
-    return out;
+              )
+            : NoteBlocks(text: _text!, onToggle: _toggle),
+      ),
+    );
   }
 }

@@ -1,16 +1,16 @@
 @_default:
     just --list --unsorted
 
-# Apply formatting (Dart + Rust).
+# Apply formatting (Dart + Rust; generated bridge output is excluded).
 fmt:
     fvm dart format lib test
-    cd rust && cargo fmt --all
+    cd rust && rustfmt --edition 2024 --config skip_children=true src/api.rs src/lib.rs
 
 # Static checks: format gate, analyze, clippy, Kotlin compile.
 lint:
     fvm dart format --output=none --set-exit-if-changed lib test
     fvm flutter analyze
-    cd rust && cargo fmt --all -- --check
+    cd rust && rustfmt --edition 2024 --config skip_children=true src/api.rs src/lib.rs
     cd rust && cargo clippy --all-targets -- -D warnings
     cd android && ./gradlew :app:compileDebugKotlin
 

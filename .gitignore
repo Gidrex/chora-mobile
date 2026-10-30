@@ -67,8 +67,8 @@ android/app/src/main/jniLibs/
 # Gradle project-level build outputs
 /android/build/
 
-# tmp dir
-# tmp/
+# local reference images (never commit)
+tmp/
 
 # Design reference images (never commit)
-/tmp/
+# /tmp/

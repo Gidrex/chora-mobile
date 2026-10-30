@@ -78,14 +78,16 @@ Future<DayEventsDto> getDayEvents({
 );
 
 /// Rewrite only the `section_index`-th event section of a day file.
+/// When the updated event carries a different date, move it: remove the
+/// section from the old day and append it to the new one.
 Future<void> updateSingleEvent({
   required String rootDir,
-  required String dateIso,
+  required String originalDateIso,
   required BigInt sectionIndex,
   required EventDto updated,
 }) => RustLib.instance.api.crateApiUpdateSingleEvent(
   rootDir: rootDir,
-  dateIso: dateIso,
+  originalDateIso: originalDateIso,
   sectionIndex: sectionIndex,
   updated: updated,
 );

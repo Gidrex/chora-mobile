@@ -32,6 +32,18 @@ cargo clippy --all-targets -- -D warnings
 cargo test
 ```
 
+## Widget tests with the real backend
+
+`flutter test` does not bundle the Rust lib, and `testWidgets` swallows native
+completions (FakeAsync): bridge futures only resolve inside `tester.runAsync`.
+
+- Build once after every `api.rs` change: `cargo build` in `rust/`
+  (provides `rust/target/debug/libchora_mobile_rust.so`).
+- `test/test_backend.dart:initTestBackend()` loads that `.so` and inits a temp
+  root. Call it in `setUpAll`; seed/read via `tester.runAsync(...)`; wrap loads
+  triggered by pumped widgets in `runAsync` + bounded `pump()` instead of
+  `pumpAndSettle` while a load is pending.
+
 For Kotlin edits, verify by compiling the modules (JDK 17):
 
 ```bash

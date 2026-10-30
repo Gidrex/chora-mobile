@@ -7,14 +7,13 @@
 
 ## State ownership
 
-- Syncthing service lifecycle belongs to `SyncthingService`/`MainActivity` (native) and the
-  `lib/syncthing.dart` facade. Widgets request start/stop but never track "is the daemon running" themselves.
+- Layer ownership (bridge, files, controllers, widgets): `.agents/architecture.md`.
 - `Backend.root` is set once in `Backend.init()`. Path changes go only through a re-init with error handling.
 - File unlocks (`AppState.fileUnlocked`) are session-scoped; never make them persistent unless asked.
 
 ## Style
 
-- `analysis_options.yaml` (`flutter_lints`) is law. Comments only carry what the code cannot show.
+- `analysis_options.yaml` is law; never add `// ignore:` to pass a gate. Comments only carry what the code cannot show.
   Delete commented-out code.
 
 ## Commits

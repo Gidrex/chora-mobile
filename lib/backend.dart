@@ -37,27 +37,30 @@ class Backend {
   static DateTime dateOf(String iso) => DateTime.parse(iso);
 
   /// Files matching sync-conflict markers under the storage root.
-  static Future<List<String>> conflicts() async {
+  static Future<List<String>> conflicts() {
     final out = <String>[];
     final rootDir = Directory(root);
-    if (!await rootDir.exists()) return out;
-    await for (final entity in rootDir.list(
+    if (!rootDir.existsSync()) return Future.value(out);
+    for (final entity in rootDir.listSync(
       recursive: true,
       followLinks: false,
     )) {
       final name = entity.path.split('/').last;
       if (name.contains('.sync-conflict-')) out.add(entity.path);
     }
-    return out..sort();
+    return Future.value(out..sort());
   }
 }
 
 /// Demo content for first-run review (no `index.md`: missing index = all open).
 Future<void> seedDemo(String root) async {
   final notes = Directory('$root/notes');
-  if (await notes.exists() &&
-      await notes.list().any((_) => true).catchError((_) => false)) {
-    return;
+  try {
+    if (notes.existsSync() && notes.listSync().isNotEmpty) {
+      return;
+    }
+  } catch (_) {
+    // Unreadable notes dir: fall through and seed demo content.
   }
   Future<void> write(String rel, String text) async {
     final file = File('$root/$rel');

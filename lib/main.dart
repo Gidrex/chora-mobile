@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -54,7 +56,7 @@ class _BootError extends StatelessWidget {
                 FilledButton(
                   onPressed: () async {
                     await state.setRootDir(null);
-                    main();
+                    await main();
                   },
                   child: const Text('Reset path and retry'),
                 ),
@@ -163,11 +165,11 @@ class _MainScaffoldState extends State<MainScaffold> {
     setState(() => _index = index);
     switch (index) {
       case 0:
-        _captureKey.currentState?.refresh();
+        unawaited(_captureKey.currentState?.refresh());
       case 1:
-        _notesKey.currentState?.reload();
+        unawaited(_notesKey.currentState?.reload());
       case 2:
-        _eventsKey.currentState?.reload();
+        unawaited(_eventsKey.currentState?.reload());
       case 3:
         _settingsKey.currentState?.setState(() {});
     }
@@ -176,9 +178,9 @@ class _MainScaffoldState extends State<MainScaffold> {
   Future<void> _reinitBackend() async {
     await Backend.init(widget.state.rootDirOverride);
     if (!mounted) return;
-    _captureKey.currentState?.refresh();
-    _notesKey.currentState?.reload();
-    _eventsKey.currentState?.reload();
+    unawaited(_captureKey.currentState?.refresh());
+    unawaited(_notesKey.currentState?.reload());
+    unawaited(_eventsKey.currentState?.reload());
     setState(() {});
   }
 
@@ -197,8 +199,8 @@ class _MainScaffoldState extends State<MainScaffold> {
                 key: _captureKey,
                 state: widget.state,
                 onSaved: () {
-                  _notesKey.currentState?.reload();
-                  _eventsKey.currentState?.reload();
+                  unawaited(_notesKey.currentState?.reload());
+                  unawaited(_eventsKey.currentState?.reload());
                 },
               ),
               NotesScreen(key: _notesKey, state: widget.state),

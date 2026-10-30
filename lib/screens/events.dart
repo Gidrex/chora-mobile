@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../app_state.dart';
 import '../backend.dart';
 import '../notifications.dart';
-import '../theme.dart';
+import '../ui/theme_helpers.dart';
+import 'weekday_header.dart';
 
 const _weekdays = [
   'monday',
@@ -36,11 +39,17 @@ class EventsScreenState extends State<EventsScreen> {
   @override
   void initState() {
     super.initState();
-    reload();
+    unawaited(reload());
   }
 
   Future<void> reload() async {
     await Future.wait([_loadMonth(), _loadRepeat()]);
+  }
+
+  void _fail(Object e) {
+    if (!mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(SnackBar(content: Text(Backend.errMsg(e))));
   }
 
   Future<void> _loadMonth() async {
@@ -53,11 +62,7 @@ class EventsScreenState extends State<EventsScreen> {
       );
       if (mounted) setState(() => _cells = cells);
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(Backend.errMsg(e))));
-      }
+      _fail(e);
     }
   }
 
@@ -69,11 +74,7 @@ class EventsScreenState extends State<EventsScreen> {
       );
       if (mounted) setState(() => _repeatEvents = events);
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(Backend.errMsg(e))));
-      }
+      _fail(e);
     }
   }
 
@@ -119,6 +120,7 @@ class EventsScreenState extends State<EventsScreen> {
             _repeatableBar(),
             const SizedBox(height: 12),
             if (_calendarView) _monthHeader() else const SizedBox.shrink(),
+            if (_calendarView) const WeekdayHeader(),
             if (_calendarView)
               CalendarGridWidget(
                 cells: _cells,
@@ -135,21 +137,6 @@ class EventsScreenState extends State<EventsScreen> {
   }
 
   Widget _monthHeader() {
-    const names = [
-      '',
-      'January',
-      'February',
-      'March',
-      'April',
-      'May',
-      'June',
-      'July',
-      'August',
-      'September',
-      'October',
-      'November',
-      'December',
-    ];
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
@@ -159,18 +146,18 @@ class EventsScreenState extends State<EventsScreen> {
             icon: const Icon(Icons.chevron_left),
             onPressed: () {
               setState(() => _month = DateTime(_month.year, _month.month - 1));
-              _loadMonth();
+              unawaited(_loadMonth());
             },
           ),
           Text(
-            '${names[_month.month]} ${_month.year}',
+            MaterialLocalizations.of(context).formatMonthYear(_month),
             style: Theme.of(context).textTheme.titleMedium,
           ),
           IconButton(
             icon: const Icon(Icons.chevron_right),
             onPressed: () {
               setState(() => _month = DateTime(_month.year, _month.month + 1));
-              _loadMonth();
+              unawaited(_loadMonth());
             },
           ),
         ],
@@ -203,7 +190,7 @@ class EventsScreenState extends State<EventsScreen> {
                         selected: _repeatDay == day,
                         onSelected: (_) {
                           setState(() => _repeatDay = day);
-                          _loadRepeat();
+                          unawaited(_loadRepeat());
                         },
                       ),
                     ),
@@ -236,7 +223,7 @@ class EventsScreenState extends State<EventsScreen> {
             Padding(
               padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
               child: OutlinedButton.icon(
-                onPressed: () => _repeatDialog(),
+                onPressed: _repeatDialog,
                 icon: const Icon(Icons.add),
                 label: Text('+ Add to ${_repeatDay.substring(0, 3)}'),
               ),
@@ -272,14 +259,9 @@ class EventsScreenState extends State<EventsScreen> {
         weekday: _repeatDay,
         events: renumbered,
       );
-      _loadRepeat();
-      _loadMonth();
+      await Future.wait([_loadRepeat(), _loadMonth()]);
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(Backend.errMsg(e))));
-      }
+      _fail(e);
     }
   }
 
@@ -314,28 +296,23 @@ class EventsScreenState extends State<EventsScreen> {
         weekday: _repeatDay,
         events: renumbered,
       );
-      _loadRepeat();
-      _loadMonth();
+      await Future.wait([_loadRepeat(), _loadMonth()]);
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(Backend.errMsg(e))));
-      }
+      _fail(e);
     }
   }
 
   Future<void> _createDialog() async {
-    await showDialog(
+    await showDialog<bool>(
       context: context,
       builder: (_) => _EventForm(state: widget.state),
     );
-    _loadMonth();
+    await _loadMonth();
   }
 
   Future<void> _settingsSheet() async {
     final s = widget.state;
-    await showModalBottomSheet(
+    await showModalBottomSheet<void>(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setSheet) => SafeArea(
@@ -527,46 +504,51 @@ class _CalendarGridWidgetState extends State<CalendarGridWidget>
           ),
           child: Opacity(
             opacity: cell.inCurrentMonth ? 1 : 0.35,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  '${cell.dayNum}',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: today || selected
-                        ? FontWeight.w700
-                        : FontWeight.normal,
-                    color: selected ? scheme.onPrimaryContainer : null,
+            // Scale down on narrow cells / large text instead of clipping
+            // the event dots (T1.3).
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    '${cell.dayNum}',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: today || selected
+                          ? FontWeight.w700
+                          : FontWeight.normal,
+                      color: selected ? scheme.onPrimaryContainer : null,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 3),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    if (cell.dayTitle != null)
-                      Container(
-                        width: 6,
-                        height: 6,
-                        decoration: BoxDecoration(
-                          color: scheme.primary,
-                          shape: BoxShape.circle,
+                  const SizedBox(height: 3),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      if (cell.dayTitle != null)
+                        Container(
+                          width: 6,
+                          height: 6,
+                          decoration: BoxDecoration(
+                            color: scheme.primary,
+                            shape: BoxShape.circle,
+                          ),
                         ),
-                      ),
-                    if (cell.dayTitle != null && cell.repeatTitle != null)
-                      const SizedBox(width: 3),
-                    if (cell.repeatTitle != null)
-                      Container(
-                        width: 6,
-                        height: 6,
-                        decoration: BoxDecoration(
-                          color: scheme.secondary,
-                          shape: BoxShape.circle,
+                      if (cell.dayTitle != null && cell.repeatTitle != null)
+                        const SizedBox(width: 3),
+                      if (cell.repeatTitle != null)
+                        Container(
+                          width: 6,
+                          height: 6,
+                          decoration: BoxDecoration(
+                            color: scheme.secondary,
+                            shape: BoxShape.circle,
+                          ),
                         ),
-                      ),
-                  ],
-                ),
-              ],
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -650,7 +632,7 @@ class _DayPopoverState extends State<_DayPopover> {
   @override
   void initState() {
     super.initState();
-    _load();
+    unawaited(_load());
   }
 
   Future<void> _load() async {
@@ -700,7 +682,7 @@ class _DayPopoverState extends State<_DayPopover> {
                   IconButton(
                     icon: const Icon(Icons.add, size: 20),
                     tooltip: 'Add',
-                    onPressed: _day == null ? null : () => _add(),
+                    onPressed: _day == null ? null : _add,
                   ),
                   IconButton(
                     icon: const Icon(Icons.close, size: 20),
@@ -789,7 +771,7 @@ class _DayPopoverState extends State<_DayPopover> {
             _editing = null;
           });
           if (saved) {
-            _load();
+            unawaited(_load());
             widget.onChanged();
           }
         },
@@ -798,12 +780,12 @@ class _DayPopoverState extends State<_DayPopover> {
   }
 
   Future<void> _add() async {
-    await showDialog(
+    await showDialog<bool>(
       context: context,
       builder: (_) =>
           _EventForm(state: widget.state, fixedDate: widget.dateIso),
     );
-    _load();
+    await _load();
     widget.onChanged();
   }
 }
@@ -828,7 +810,7 @@ class _EventListState extends State<_EventList> {
   @override
   void initState() {
     super.initState();
-    _load();
+    unawaited(_load());
   }
 
   Future<void> _load() async {
@@ -849,7 +831,7 @@ class _EventListState extends State<_EventList> {
 
   void _select(DateTime date) {
     setState(() => _iso = Backend.isoOf(date));
-    _load();
+    unawaited(_load());
   }
 
   void _shiftWeek(int days) {
@@ -857,7 +839,7 @@ class _EventListState extends State<_EventList> {
       _weekStart = _weekStart.add(Duration(days: days));
       _iso = Backend.isoOf(Backend.dateOf(_iso).add(Duration(days: days)));
     });
-    _load();
+    unawaited(_load());
   }
 
   @override
@@ -1203,6 +1185,12 @@ class _EventFormState extends State<_EventForm> {
       _iso.compareTo(Backend.isoOf(DateTime.now())) < 0 &&
       widget.initial == null;
 
+  void _fail(Object e) {
+    if (!mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(SnackBar(content: Text(Backend.errMsg(e))));
+  }
+
   Future<void> _save() async {
     if (_title.text.trim().isEmpty) {
       ScaffoldMessenger.of(
@@ -1221,7 +1209,7 @@ class _EventFormState extends State<_EventForm> {
       } else {
         await updateSingleEvent(
           rootDir: Backend.root,
-          dateIso: _iso,
+          originalDateIso: widget.initial!.dateIso,
           sectionIndex: widget.initial!.index,
           updated: dto,
         );
@@ -1245,11 +1233,7 @@ class _EventFormState extends State<_EventForm> {
         }
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(Backend.errMsg(e))));
-      }
+      _fail(e);
     }
   }
 
@@ -1269,7 +1253,7 @@ class _EventFormState extends State<_EventForm> {
     try {
       await deleteSingleEvent(
         rootDir: Backend.root,
-        dateIso: _iso,
+        dateIso: initial.dateIso,
         sectionIndex: initial.index,
       );
       if (mounted) {
@@ -1280,11 +1264,7 @@ class _EventFormState extends State<_EventForm> {
         }
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(Backend.errMsg(e))));
-      }
+      _fail(e);
     }
   }
 
@@ -1303,7 +1283,10 @@ class _EventFormState extends State<_EventForm> {
           children: [
             Expanded(
               child: OutlinedButton(
-                onPressed: widget.fixedDate != null && !widget.repeatable
+                onPressed:
+                    widget.fixedDate != null &&
+                        !widget.repeatable &&
+                        widget.initial == null
                     ? null
                     : () async {
                         final picked = await showDatePicker(

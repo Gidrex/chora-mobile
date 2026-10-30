@@ -12,6 +12,7 @@ class AppState extends ChangeNotifier {
   static const presetSystem = 'system';
   static const presetObsidian = 'obsidian';
   static const presetLuma = 'luma';
+  static const presetAmbient = 'ambient';
   static const presetMono = 'mono';
 
   String get themePreset => _prefs.getString('theme_preset') ?? presetSystem;

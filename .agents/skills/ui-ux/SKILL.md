@@ -19,6 +19,11 @@ Distilled from user feedback. Normative for every visible pixel.
 - Empty by default: no auto-seeded content on startup. Demo data only via an
   explicit user action or emulator-side setup, never in the startup path.
 - Hint texts are spec: implement the exact wording given, no paraphrase.
+- Tokens, interaction, content and accessibility rules: `.agents/design.md`. Every visible change obeys it.
+- Never lose input: unsaved edits ask before leaving; destructive actions offer Undo or confirm.
+- No dev jargon or raw paths in UI (`chora_dir`, `[open]`, `(files)`, `/data/...`, `->`).
+- Done means verified on the emulator via mobile-mcp: light + dark, text scale 2.0, keyboard open, back
+  button; no overflow stripes. Attach screenshots of changed screens.
 
 ## Bar
 

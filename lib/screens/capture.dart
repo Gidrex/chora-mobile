@@ -1,10 +1,16 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../app_state.dart';
+import '../auth.dart';
 import '../backend.dart';
 import '../notifications.dart';
-import '../theme.dart';
+import '../ui/theme_helpers.dart';
+import '../ui/widgets.dart';
+import 'bento_tile.dart';
+import 'capture_event_form.dart';
 
 /// Marker auto-inserted after Enter on a checklist line, else null.
 String? continuedMarker(String line) {
@@ -50,8 +56,10 @@ class CaptureScreenState extends State<CaptureScreen> {
   void initState() {
     super.initState();
     _eventTime = _snap(TimeOfDay.now(), true);
+    _title.addListener(_touch);
     _body.addListener(_trackToken);
-    _reload();
+    _body.addListener(_touch);
+    unawaited(_reload());
   }
 
   @override
@@ -79,6 +87,35 @@ class CaptureScreenState extends State<CaptureScreen> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
   }
 
+  void _touch() {
+    if (mounted) setState(() {});
+  }
+
+  /// Anything the user would lose by leaving: text, target or options.
+  bool get _dirty =>
+      _title.text.isNotEmpty ||
+      _body.text.isNotEmpty ||
+      _targetNote != null ||
+      _delegate ||
+      _asEvent;
+
+  /// Save needs at least a title or a body.
+  bool get _canSave =>
+      _title.text.trim().isNotEmpty || _body.text.trim().isNotEmpty;
+
+  void _clearDraft() {
+    _title.clear();
+    _body.clear();
+    _durationManual.text = '45m';
+    setState(() {
+      _targetNote = null;
+      _targetHeader = null;
+      _delegate = false;
+      _asEvent = false;
+      _duration = '45m';
+    });
+  }
+
   /// Visible files minus projects hidden in Notes settings.
   List<NoteFileDto> get _visibleFiles {
     final hidden = widget.state.hiddenProjects.toSet();
@@ -87,6 +124,11 @@ class CaptureScreenState extends State<CaptureScreen> {
         if (!hidden.contains(p.dir)) ...p.files,
     ];
   }
+
+  /// True when [file] is gated and not yet unlocked this session.
+  bool _locked(NoteFileDto file) =>
+      widget.state.needsGate(file.security.name) &&
+      widget.state.fileUnlocked[file.relPath] != true;
 
   void _trackToken() {
     // Enter at the end of a checklist line starts the next one with `- [ ] `.
@@ -108,13 +150,9 @@ class CaptureScreenState extends State<CaptureScreen> {
     if (cursor > 0 && cursor <= _body.text.length) {
       final before = _body.text.substring(0, cursor);
       final match = RegExp(r'([@#])([\w\-./]*)$').firstMatch(before);
-      if (match != null) {
-        // `#` completes headers only after a file was picked.
-        if (match.group(1) == '#' && _targetNote == null) {
-          token = null;
-        } else {
-          token = match.group(0);
-        }
+      // `#` completes headers only after a file was picked.
+      if (match != null && (match.group(1) != '#' || _targetNote != null)) {
+        token = match.group(0);
       }
     }
     if (token != _token && mounted) setState(() => _token = token);
@@ -137,7 +175,19 @@ class CaptureScreenState extends State<CaptureScreen> {
     );
   }
 
-  void _pickFile(NoteFileDto file) {
+  /// Pick an autocomplete file as the capture target.
+  /// Gated files ask for unlock first; denial leaves the draft untouched.
+  Future<bool> _pickFile(NoteFileDto file) async {
+    if (_locked(file)) {
+      if (!await unlock(
+        context,
+        widget.state,
+        reason: 'Append to ${file.relPath}',
+      )) {
+        return false;
+      }
+      widget.state.fileUnlocked[file.relPath] = true;
+    }
     setState(() {
       _targetNote = file.relPath;
       _targetHeader = null;
@@ -145,6 +195,7 @@ class CaptureScreenState extends State<CaptureScreen> {
     });
     _replaceToken('');
     _bodyFocus.requestFocus();
+    return true;
   }
 
   void _pickHeader(String header) {
@@ -198,7 +249,7 @@ class CaptureScreenState extends State<CaptureScreen> {
       '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
 
   Future<void> _save() async {
-    if (_saving) return;
+    if (_saving || !_canSave) return;
     setState(() => _saving = true);
     try {
       final duration = _durationManual.text.trim().isEmpty
@@ -258,81 +309,96 @@ class CaptureScreenState extends State<CaptureScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     return CallbackShortcuts(
       bindings: {
         const SingleActivator(LogicalKeyboardKey.enter, control: true): _save,
       },
       child: Focus(
         autofocus: false,
-        child: Scaffold(
-          backgroundColor: Colors.transparent,
-          appBar: AppBar(
-            title: const Text('Capture'),
-            actions: [
-              FilledButton(
-                onPressed: _saving ? null : _save,
-                child: const Text('Save ->'),
-              ),
-              const SizedBox(width: 8),
-            ],
-          ),
-          body: ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              TextField(
-                controller: _title,
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w600,
+        child: PopScope(
+          canPop: !_dirty,
+          onPopInvokedWithResult: (didPop, _) async {
+            if (didPop || !_dirty) return;
+            final navigator = Navigator.of(context);
+            final choice = await confirmUnsavedEdits(context);
+            if (!mounted) return;
+            if (choice == DiscardChoice.save) {
+              await _save();
+              if (mounted && !_dirty) navigator.pop();
+            } else if (choice == DiscardChoice.discard) {
+              _clearDraft();
+              if (mounted) navigator.pop();
+            }
+          },
+          child: Scaffold(
+            backgroundColor: Colors.transparent,
+            appBar: AppBar(
+              title: const Text('Capture'),
+              actions: [
+                FilledButton(
+                  onPressed: _saving || !_canSave ? null : _save,
+                  child: const Text('Save ->'),
                 ),
-                decoration: const InputDecoration(
-                  hintText: 'Write your thoughts...',
-                  border: InputBorder.none,
-                  filled: false,
+                const SizedBox(width: 8),
+              ],
+            ),
+            body: ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                TextField(
+                  controller: _title,
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  decoration: const InputDecoration(
+                    hintText: 'Write your thoughts...',
+                    border: InputBorder.none,
+                    filled: false,
+                  ),
+                  textInputAction: TextInputAction.next,
+                  onSubmitted: (_) => _bodyFocus.requestFocus(),
                 ),
-                textInputAction: TextInputAction.next,
-                onSubmitted: (_) => _bodyFocus.requestFocus(),
-              ),
-              const SizedBox(height: 8),
-              if (_targetNote != null)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Wrap(
-                    spacing: 8,
-                    children: [
-                      Chip(
-                        label: Text(
-                          '@$_targetNote${_targetHeader == null ? '' : '#$_targetHeader'}',
-                          style: mono(context),
+                const SizedBox(height: 8),
+                if (_targetNote != null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Wrap(
+                      spacing: 8,
+                      children: [
+                        Chip(
+                          label: Text(
+                            '@$_targetNote${_targetHeader == null ? '' : '#$_targetHeader'}',
+                            style: mono(context),
+                          ),
+                          deleteIcon: const Icon(Icons.close, size: 16),
+                          onDeleted: () => setState(() {
+                            _targetNote = null;
+                            _targetHeader = null;
+                          }),
                         ),
-                        deleteIcon: const Icon(Icons.close, size: 16),
-                        onDeleted: () => setState(() {
-                          _targetNote = null;
-                          _targetHeader = null;
-                        }),
-                      ),
-                    ],
+                      ],
+                    ),
+                  ),
+                if (_token != null) _suggestions(),
+                TextField(
+                  controller: _body,
+                  focusNode: _bodyFocus,
+                  maxLines: 8,
+                  minLines: 4,
+                  style: mono(context, size: 13.5),
+                  decoration: const InputDecoration(
+                    hintText: 'Markdown, - [ ] checklists, @project, #section',
                   ),
                 ),
-              if (_token != null) _suggestions(),
-              TextField(
-                controller: _body,
-                focusNode: _bodyFocus,
-                maxLines: 8,
-                minLines: 4,
-                style: mono(context, size: 13.5),
-                decoration: const InputDecoration(
-                  hintText: 'Markdown, - [ ] checklists, @project, #section',
-                ),
-              ),
-              const SizedBox(height: 8),
-              _quickBar(),
-              const SizedBox(height: 12),
-              _bentoTiles(scheme),
-              const SizedBox(height: 12),
-              _priorityRow(),
-            ],
+                const SizedBox(height: 8),
+                _quickBar(),
+                const SizedBox(height: 12),
+                _bentoTiles(),
+                const SizedBox(height: 12),
+                _priorityRow(),
+              ],
+            ),
           ),
         ),
       ),
@@ -376,10 +442,11 @@ class CaptureScreenState extends State<CaptureScreen> {
         (f) => f?.relPath == _targetNote,
         orElse: () => null,
       );
+      // Locked files hide their headers until unlocked this session.
       final query = token.substring(1).toLowerCase();
-      final headers = (file?.headers ?? [])
-          .where((h) => h.toLowerCase().contains(query))
-          .toList();
+      final headers = (file == null || _locked(file))
+          ? const <String>[]
+          : file.headers.where((h) => h.toLowerCase().contains(query)).toList();
       rows = [
         for (final h in headers.take(8))
           ListTile(
@@ -415,18 +482,17 @@ class CaptureScreenState extends State<CaptureScreen> {
               '[${f.security.name}]',
               style: mono(context, size: 11),
             ),
-            onTap: () {
+            onTap: () async {
               if (hash >= 0 && headerQuery.isNotEmpty) {
                 final hit = f.headers.firstWhere(
                   (h) => h.toLowerCase().contains(headerQuery),
                   orElse: () => '',
                 );
-                _pickFile(f);
-                if (hit.isNotEmpty) {
+                if (await _pickFile(f) && hit.isNotEmpty) {
                   setState(() => _targetHeader = hit);
                 }
               } else {
-                _pickFile(f);
+                unawaited(_pickFile(f));
               }
             },
           ),
@@ -435,19 +501,24 @@ class CaptureScreenState extends State<CaptureScreen> {
         rows = [const ListTile(dense: true, title: Text('No matching notes'))];
       }
     }
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Material(
         color: scheme.surfaceContainerHigh,
-        border: Border.all(color: scheme.primary, width: 1),
-        borderRadius: BorderRadius.circular(12),
+        clipBehavior: Clip.antiAlias,
+        shape: RoundedRectangleBorder(
+          side: BorderSide(color: scheme.primary),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 240),
+          child: ListView(shrinkWrap: true, children: rows),
+        ),
       ),
-      constraints: const BoxConstraints(maxHeight: 240),
-      child: ListView(shrinkWrap: true, children: rows),
     );
   }
 
-  Widget _bentoTiles(ColorScheme scheme) {
+  Widget _bentoTiles() {
     return GridView.count(
       crossAxisCount: 2,
       shrinkWrap: true,
@@ -456,15 +527,13 @@ class CaptureScreenState extends State<CaptureScreen> {
       crossAxisSpacing: 8,
       childAspectRatio: 2.0,
       children: [
-        _tile(
-          scheme,
+        BentoTile(
           title: 'Delegate to Agent',
           subtitle: '-> to-agent/',
           value: _delegate,
           onChanged: (v) => setState(() => _delegate = v),
         ),
-        _tile(
-          scheme,
+        BentoTile(
           title: 'Record as Event',
           subtitle: 'events/*.md',
           value: _asEvent,
@@ -474,45 +543,36 @@ class CaptureScreenState extends State<CaptureScreen> {
     );
   }
 
-  Widget _tile(
-    ColorScheme scheme, {
-    required String title,
-    required String subtitle,
-    required bool value,
-    required ValueChanged<bool> onChanged,
-  }) {
-    return InkWell(
-      onTap: () => onChanged(!value),
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: value ? scheme.primaryContainer : scheme.surfaceContainer,
-          border: Border.all(color: scheme.outlineVariant, width: 1),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Row(
-          children: [
-            Switch(value: value, onChanged: onChanged),
-            Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: Theme.of(context).textTheme.titleSmall),
-                  Text(subtitle, style: mono(context, size: 11)),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _priorityRow() {
-    if (_asEvent) return _eventPickers();
-    return _prioritySegmented();
+    if (!_asEvent) return _prioritySegmented();
+    return CaptureEventForm(
+      dateLabel: Backend.isoOf(_eventDate),
+      timeLabel: _fmtTime(_eventTime),
+      onPrevDay: () => setState(
+        () => _eventDate = _eventDate.subtract(const Duration(days: 1)),
+      ),
+      onNextDay: () =>
+          setState(() => _eventDate = _eventDate.add(const Duration(days: 1))),
+      onPickDate: () async {
+        final picked = await showDatePicker(
+          context: context,
+          initialDate: _eventDate,
+          firstDate: DateTime(2000),
+          lastDate: DateTime(2100),
+        );
+        if (picked != null) setState(() => _eventDate = picked);
+      },
+      onStepTime: (forward) =>
+          setState(() => _eventTime = _snap(_eventTime, forward)),
+      duration: _duration,
+      durationManual: _durationManual,
+      onDurationChanged: (d) => setState(() {
+        _duration = d;
+        _durationManual.text = d;
+      }),
+      onDurationManualChanged: (_) => setState(() {}),
+      prioritySelector: _prioritySegmented(),
+    );
   }
 
   Widget _prioritySegmented() {
@@ -528,100 +588,6 @@ class CaptureScreenState extends State<CaptureScreen> {
         selected: {_priority},
         onSelectionChanged: (s) => setState(() => _priority = s.first),
       ),
-    );
-  }
-
-  Widget _eventPickers() {
-    return Column(
-      children: [
-        Row(
-          children: [
-            IconButton(
-              icon: const Icon(Icons.chevron_left),
-              onPressed: () => setState(
-                () => _eventDate = _eventDate.subtract(const Duration(days: 1)),
-              ),
-            ),
-            Expanded(
-              child: OutlinedButton(
-                onPressed: () async {
-                  final picked = await showDatePicker(
-                    context: context,
-                    initialDate: _eventDate,
-                    firstDate: DateTime(2000),
-                    lastDate: DateTime(2100),
-                  );
-                  if (picked != null) setState(() => _eventDate = picked);
-                },
-                child: Text(
-                  'Date: ${Backend.isoOf(_eventDate)}',
-                  style: mono(context),
-                ),
-              ),
-            ),
-            IconButton(
-              icon: const Icon(Icons.chevron_right),
-              onPressed: () => setState(
-                () => _eventDate = _eventDate.add(const Duration(days: 1)),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            OutlinedButton(
-              onPressed: () =>
-                  setState(() => _eventTime = _snap(_eventTime, false)),
-              child: const Text('-15m'),
-            ),
-            Expanded(
-              child: Center(
-                child: Text(
-                  'Time: ${_fmtTime(_eventTime)}',
-                  style: mono(context, size: 14),
-                ),
-              ),
-            ),
-            OutlinedButton(
-              onPressed: () =>
-                  setState(() => _eventTime = _snap(_eventTime, true)),
-              child: const Text('+15m'),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            for (final d in ['15m', '30m', '45m', '1h', '2h'])
-              ChoiceChip(
-                label: Text(d, style: mono(context)),
-                selected: _duration == d,
-                onSelected: (_) => setState(() {
-                  _duration = d;
-                  _durationManual.text = d;
-                }),
-              ),
-            SizedBox(
-              width: 90,
-              child: TextField(
-                controller: _durationManual,
-                style: mono(context),
-                decoration: const InputDecoration(
-                  labelText: 'Duration',
-                  isDense: true,
-                ),
-                onChanged: (_) => setState(() {}),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        _prioritySegmented(),
-      ],
     );
   }
 }
