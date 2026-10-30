@@ -8,19 +8,12 @@ import 'package:flutter_test/flutter_test.dart';
 /// Only these paths may touch the Rust bridge, `Backend` or `dart:io`.
 const _ioLayers = ['lib/backend.dart', 'lib/data/', 'lib/platform/'];
 
-const _ioBaseline = {
-  'lib/main.dart',
-  'lib/screens/events.dart',
-  'lib/screens/settings.dart',
-};
+const _ioBaseline = {'lib/main.dart', 'lib/screens/settings.dart'};
 
 const _maxLines = 300;
 
 /// Legacy files over [_maxLines]: current length is the cap, lower it as you split.
-const _lengthBaseline = {
-  'lib/screens/events.dart': 1390,
-  'lib/screens/settings.dart': 475,
-};
+const _lengthBaseline = {'lib/screens/settings.dart': 475};
 
 const _emptyCatchBaseline = {'lib/screens/settings.dart'};
 

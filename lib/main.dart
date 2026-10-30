@@ -9,12 +9,13 @@ import 'app_state.dart';
 import 'auth.dart';
 import 'app/app_scope.dart';
 import 'data/capture_repository.dart';
+import 'data/events_repository.dart';
 import 'data/notes_repository.dart';
 import 'features/notes/notes_screen.dart';
 import 'backend.dart';
 import 'platform/notifications.dart';
 import 'features/capture/capture_screen.dart';
-import 'screens/events.dart';
+import 'features/events/events_screen.dart';
 import 'screens/settings.dart';
 import 'stars.dart';
 import 'theme.dart';
@@ -87,6 +88,7 @@ class ChoraApp extends StatefulWidget {
 class _ChoraAppState extends State<ChoraApp> {
   late final _notesRepo = BridgeNotesRepository();
   late final _captureRepo = CaptureRepository();
+  late final _eventsRepo = BridgeEventsRepository();
 
   @override
   Widget build(BuildContext context) {
@@ -105,6 +107,7 @@ class _ChoraAppState extends State<ChoraApp> {
             state: widget.state,
             notes: _notesRepo,
             capture: _captureRepo,
+            events: _eventsRepo,
             child: MaterialApp(
               title: 'Chora',
               theme: themed(lightDynamic, Brightness.light),

@@ -1,6 +1,8 @@
 import 'package:chora_mobile/app_state.dart';
-import 'package:chora_mobile/screens/events.dart';
-import 'package:chora_mobile/screens/weekday_header.dart';
+import 'package:chora_mobile/data/events_repository.dart';
+import 'package:chora_mobile/features/events/events_controller.dart';
+import 'package:chora_mobile/features/events/widgets/calendar_grid.dart';
+import 'package:chora_mobile/features/events/widgets/weekday_header.dart';
 import 'package:chora_mobile/src/rust/api.dart';
 import 'package:chora_mobile/theme.dart';
 import 'package:flutter/material.dart';
@@ -42,11 +44,10 @@ void main() {
       home: MediaQuery(
         data: const MediaQueryData(textScaler: TextScaler.linear(1.3)),
         child: Scaffold(
-          body: CalendarGridWidget(
+          body: CalendarGrid(
             cells: cells(),
             square: false,
-            onChanged: () {},
-            state: state,
+            controller: EventsController(BridgeEventsRepository(), state),
           ),
         ),
       ),

@@ -38,7 +38,7 @@ class _NoteViewerScreenState extends State<NoteViewerScreen> {
     super.didChangeDependencies();
     if (_controller == null) {
       _controller = NotesController(
-        AppScope.repoOf(context),
+        AppScope.notesOf(context),
         AppScope.of(context),
       )..addListener(_refresh);
       unawaited(_controller!.open(widget.file));

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../app_state.dart';
 import '../data/capture_repository.dart';
+import '../data/events_repository.dart';
 import '../data/notes_repository.dart';
 
 /// Inherited hand-out for repositories and controllers (T2.2+).
@@ -13,18 +14,24 @@ class AppScope extends InheritedWidget {
     required this.state,
     required this.notes,
     required this.capture,
+    required this.events,
     required super.child,
   });
 
   final AppState state;
   final NotesRepository notes;
   final CaptureRepository capture;
+  final EventsRepository events;
 
   static AppState of(BuildContext context) => scopeOf(context).state;
-  static NotesRepository repoOf(BuildContext context) => scopeOf(context).notes;
+  static NotesRepository notesOf(BuildContext context) =>
+      scopeOf(context).notes;
 
   static CaptureRepository captureOf(BuildContext context) =>
       scopeOf(context).capture;
+
+  static EventsRepository eventsOf(BuildContext context) =>
+      scopeOf(context).events;
 
   static AppScope scopeOf(BuildContext context) {
     final scope = context.dependOnInheritedWidgetOfExactType<AppScope>();

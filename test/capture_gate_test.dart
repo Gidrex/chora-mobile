@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:chora_mobile/app_state.dart';
 import 'package:chora_mobile/app/app_scope.dart';
 import 'package:chora_mobile/data/capture_repository.dart';
+import 'package:chora_mobile/data/events_repository.dart';
 import 'package:chora_mobile/data/notes_repository.dart';
 import 'package:chora_mobile/features/capture/capture_screen.dart';
 import 'package:chora_mobile/theme.dart';
@@ -29,6 +30,7 @@ void main() {
         state: state,
         notes: BridgeNotesRepository(),
         capture: CaptureRepository(),
+        events: BridgeEventsRepository(),
         child: MaterialApp(
           theme: buildTheme(
             preset: 'system',

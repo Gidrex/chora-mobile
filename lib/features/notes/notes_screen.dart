@@ -30,7 +30,7 @@ class NotesScreenState extends State<NotesScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (_controller == null) {
-      _controller = NotesController(AppScope.repoOf(context), widget.state)
+      _controller = NotesController(AppScope.notesOf(context), widget.state)
         ..addListener(_refresh);
       unawaited(_controller!.reload());
       widget.state.addListener(_refresh);

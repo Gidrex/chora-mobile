@@ -2,6 +2,7 @@ import 'package:chora_mobile/app/app_scope.dart';
 import 'package:chora_mobile/app_state.dart';
 import 'package:chora_mobile/data/models.dart';
 import 'package:chora_mobile/data/capture_repository.dart';
+import 'package:chora_mobile/data/events_repository.dart';
 import 'package:chora_mobile/data/notes_repository.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -18,6 +19,7 @@ void main() {
           state: state,
           notes: BridgeNotesRepository(),
           capture: CaptureRepository(),
+          events: BridgeEventsRepository(),
           child: Builder(
             builder: (context) {
               found = AppScope.of(context);

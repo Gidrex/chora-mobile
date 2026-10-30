@@ -58,7 +58,7 @@ How to work a task:
 - [x] **T2.3 Capture.** `CaptureRepository`, `CaptureController` (draft, target, token parsing in `domain/`).
   Reminder side effects move out of the widget. Accept: `continuedMarker` and token parsing unit-tested in
   `domain/`, baseline entries gone.
-- [ ] **T2.4 Events.** `EventsRepository` (month grid cached per month, day events, repeatables, revision),
+- [x] **T2.4 Events.** `EventsRepository` (month grid cached per month, day events, repeatables, revision),
   `EventsController`; split into `features/events/widgets/{calendar_grid,day_sheet,event_list,event_form,
   repeatable_panel}.dart`. Accept: every file <= 300 lines, baseline entries gone.
 - [ ] **T2.5 Settings.** `SettingsStore` with typed enums; appearance split so only it rebuilds
