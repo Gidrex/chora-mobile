@@ -1,7 +1,10 @@
 import 'package:chora_mobile/app_state.dart';
 import 'package:chora_mobile/backend.dart';
-import 'package:chora_mobile/screens/capture.dart';
-import 'package:chora_mobile/screens/notes.dart';
+import 'package:chora_mobile/features/capture/capture_screen.dart';
+import 'package:chora_mobile/app/app_scope.dart';
+import 'package:chora_mobile/data/capture_repository.dart';
+import 'package:chora_mobile/data/notes_repository.dart';
+import 'package:chora_mobile/features/notes/note_viewer_screen.dart';
 import 'package:chora_mobile/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -10,20 +13,26 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'test_backend.dart';
 
-Widget _wrap(Widget child) {
-  return MaterialApp(
-    theme: buildTheme(
-      preset: 'system',
-      brightness: Brightness.dark,
-      fontName: 'Onest',
-      dynamicScheme: null,
+Widget _wrap(Widget child, AppState state) {
+  return AppScope(
+    state: state,
+    notes: BridgeNotesRepository(),
+    capture: CaptureRepository(),
+    child: MaterialApp(
+      theme: buildTheme(
+        preset: 'system',
+        brightness: Brightness.dark,
+        fontName: 'Onest',
+        dynamicScheme: null,
+      ),
+      home: child,
     ),
-    home: child,
   );
 }
 
 /// Pushes [screen] from a home button so back-pop can be observed.
-Widget _pushed(Widget screen) {
+/// Screens resolve their controllers through [AppScope].
+Widget _pushed(Widget screen, AppState state) {
   return _wrap(
     Scaffold(
       body: Builder(
@@ -36,6 +45,7 @@ Widget _pushed(Widget screen) {
         ),
       ),
     ),
+    state,
   );
 }
 
@@ -50,7 +60,9 @@ void main() {
     tester,
   ) async {
     final state = AppState(await SharedPreferences.getInstance());
-    await tester.pumpWidget(_wrap(CaptureScreen(state: state, onSaved: () {})));
+    await tester.pumpWidget(
+      _wrap(CaptureScreen(state: state, onSaved: () {}), state),
+    );
     await tester.pumpAndSettle();
     final save = tester.widget<FilledButton>(
       find.widgetWithText(FilledButton, 'Save ->'),
@@ -71,7 +83,7 @@ void main() {
   ) async {
     final state = AppState(await SharedPreferences.getInstance());
     await tester.pumpWidget(
-      _pushed(CaptureScreen(state: state, onSaved: () {})),
+      _pushed(CaptureScreen(state: state, onSaved: () {}), state),
     );
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
@@ -103,7 +115,7 @@ void main() {
       about: '',
       headers: [],
     );
-    await tester.pumpWidget(_pushed(NoteViewer(state: state, file: file)));
+    await tester.pumpWidget(_pushed(const NoteViewerScreen(file: file), state));
     // Widget-triggered bridge loads need real async (FakeAsync swallows
     // native completions, so pumpAndSettle can never settle while loading).
     await tester.tap(find.text('open'));
@@ -148,7 +160,7 @@ void main() {
       about: '',
       headers: [],
     );
-    await tester.pumpWidget(_pushed(NoteViewer(state: state, file: file)));
+    await tester.pumpWidget(_pushed(const NoteViewerScreen(file: file), state));
     await tester.tap(find.text('open'));
     for (var i = 0; i < 5; i++) {
       await tester.pump(const Duration(milliseconds: 100));

@@ -8,11 +8,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'app_state.dart';
 import 'auth.dart';
 import 'app/app_scope.dart';
+import 'data/capture_repository.dart';
+import 'data/notes_repository.dart';
+import 'features/notes/notes_screen.dart';
 import 'backend.dart';
 import 'platform/notifications.dart';
-import 'screens/capture.dart';
+import 'features/capture/capture_screen.dart';
 import 'screens/events.dart';
-import 'screens/notes.dart';
 import 'screens/settings.dart';
 import 'stars.dart';
 import 'theme.dart';
@@ -83,6 +85,9 @@ class ChoraApp extends StatefulWidget {
 }
 
 class _ChoraAppState extends State<ChoraApp> {
+  late final _notesRepo = BridgeNotesRepository();
+  late final _captureRepo = CaptureRepository();
+
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
@@ -96,14 +101,16 @@ class _ChoraAppState extends State<ChoraApp> {
                 fontName: widget.state.fontName,
                 dynamicScheme: scheme,
               );
-          return MaterialApp(
-            title: 'Chora',
-            theme: themed(lightDynamic, Brightness.light),
-            darkTheme: themed(darkDynamic, Brightness.dark),
-            themeMode: widget.state.themeMode,
-            home: AppScope(
-              state: widget.state,
-              child: _Gate(state: widget.state),
+          return AppScope(
+            state: widget.state,
+            notes: _notesRepo,
+            capture: _captureRepo,
+            child: MaterialApp(
+              title: 'Chora',
+              theme: themed(lightDynamic, Brightness.light),
+              darkTheme: themed(darkDynamic, Brightness.dark),
+              themeMode: widget.state.themeMode,
+              home: _Gate(state: widget.state),
             ),
           );
         },

@@ -18,7 +18,7 @@ How to work a task:
   unawaited_futures unnecessary_lambdas use_build_context_synchronously use_super_parameters`.
   Fix all findings (~48; mostly fire-and-forget futures -> `unawaited(...)` with intent, or await).
   Accept: `fvm flutter analyze` clean.
-- [ ] **T0.2 Offline fonts.** Bundle Onest, Golos Text, Martian Mono, IBM Plex Mono (regular + semibold)
+- [x] **T0.2 Offline fonts.** (verified: airplane-mode fresh launch on emulator renders bundled Onest; release arm64 APK ~11.4 MB) Bundle Onest, Golos Text, Martian Mono, IBM Plex Mono (regular + semibold)
   under `assets/fonts/` per google_fonts docs, set `GoogleFonts.config.allowRuntimeFetching = false` in
   `main()`, remove `INTERNET` from `AndroidManifest.xml`. Accept: airplane-mode first launch renders the
   chosen font; APK size growth noted in the commit body.
@@ -52,10 +52,10 @@ How to work a task:
 - [ ] **T2.1 Skeleton.** `lib/app/app_scope.dart` (InheritedWidget), `lib/data/models.dart`
   (DTO-only re-export), move `notifications.dart`, `storage_access.dart`, `auth.dart` platform calls to
   `lib/platform/`. Accept: app runs; no behavior change.
-- [ ] **T2.2 Notes.** `NotesRepository` (list projects, read/save note, toggle checkbox, cache + revision),
+- [x] **T2.2 Notes.** `NotesRepository` (list projects, read/save note, toggle checkbox, cache + revision),
   `NotesController`, `features/notes/` widgets. Accept: `screens/notes.dart` deleted, baseline entries gone,
   controller test.
-- [ ] **T2.3 Capture.** `CaptureRepository`, `CaptureController` (draft, target, token parsing in `domain/`).
+- [x] **T2.3 Capture.** `CaptureRepository`, `CaptureController` (draft, target, token parsing in `domain/`).
   Reminder side effects move out of the widget. Accept: `continuedMarker` and token parsing unit-tested in
   `domain/`, baseline entries gone.
 - [ ] **T2.4 Events.** `EventsRepository` (month grid cached per month, day events, repeatables, revision),

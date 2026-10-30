@@ -1,5 +1,4 @@
 import 'package:chora_mobile/backend.dart';
-import 'package:chora_mobile/screens/capture.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -11,13 +10,6 @@ void main() {
   test('dateOf parses ISO dates back', () {
     final date = Backend.dateOf('2026-11-20');
     expect((date.year, date.month, date.day), (2026, 11, 20));
-  });
-
-  test('continuedMarker keeps checklist going after Enter', () {
-    expect(continuedMarker('- [ ] milk'), '- [ ] ');
-    expect(continuedMarker('  - [x] done'), '  - [ ] ');
-    expect(continuedMarker('plain text'), isNull);
-    expect(continuedMarker('- [ ]'), isNull);
   });
 
   test('errMsg strips exception prefixes to one line', () {

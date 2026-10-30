@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../ui/theme_helpers.dart';
+import '../../../ui/theme_helpers.dart';
 
 /// Bento toggle tile: title + mono subtitle + switch. Tapping the tile
 /// toggles it; the tile itself carries no semantics beyond the switch.

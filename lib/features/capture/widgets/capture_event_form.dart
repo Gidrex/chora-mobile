@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../ui/theme_helpers.dart';
+import '../../../ui/theme_helpers.dart';
 
 /// Date/time/duration/priority pickers for Capture's "Record as Event" mode.
 /// Pure UI: the screen owns the state and passes labels + callbacks.

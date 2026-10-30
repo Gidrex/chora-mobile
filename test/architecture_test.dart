@@ -10,9 +10,7 @@ const _ioLayers = ['lib/backend.dart', 'lib/data/', 'lib/platform/'];
 
 const _ioBaseline = {
   'lib/main.dart',
-  'lib/screens/capture.dart',
   'lib/screens/events.dart',
-  'lib/screens/notes.dart',
   'lib/screens/settings.dart',
 };
 
@@ -21,9 +19,7 @@ const _maxLines = 300;
 /// Legacy files over [_maxLines]: current length is the cap, lower it as you split.
 const _lengthBaseline = {
   'lib/screens/events.dart': 1390,
-  'lib/screens/capture.dart': 627,
   'lib/screens/settings.dart': 475,
-  'lib/screens/notes.dart': 458,
 };
 
 const _emptyCatchBaseline = {'lib/screens/settings.dart'};
