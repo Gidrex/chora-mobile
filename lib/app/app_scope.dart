@@ -1,44 +1,20 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 
-import '../data/settings_store.dart';
-import '../data/capture_repository.dart';
-import '../data/events_repository.dart';
-import '../data/notes_repository.dart';
+import 'services.dart';
 
-/// Inherited hand-out for repositories and controllers (T2.2+).
-/// Today it carries [SettingsStore]; screens keep constructor injection until
-/// the shell migration (T2.6) removes the cross-widget `GlobalKey` calls.
+/// Hands [AppServices] to the widget tree. Services never change after boot,
+/// so lookups register no rebuild dependency.
 class AppScope extends InheritedWidget {
-  const AppScope({
-    super.key,
-    required this.state,
-    required this.notes,
-    required this.capture,
-    required this.events,
-    required super.child,
-  });
+  const AppScope({super.key, required this.services, required super.child});
 
-  final SettingsStore state;
-  final NotesRepository notes;
-  final CaptureRepository capture;
-  final EventsRepository events;
+  final AppServices services;
 
-  static SettingsStore of(BuildContext context) => scopeOf(context).state;
-  static NotesRepository notesOf(BuildContext context) =>
-      scopeOf(context).notes;
-
-  static CaptureRepository captureOf(BuildContext context) =>
-      scopeOf(context).capture;
-
-  static EventsRepository eventsOf(BuildContext context) =>
-      scopeOf(context).events;
-
-  static AppScope scopeOf(BuildContext context) {
-    final scope = context.dependOnInheritedWidgetOfExactType<AppScope>();
+  static AppServices of(BuildContext context) {
+    final scope = context.getInheritedWidgetOfExactType<AppScope>();
     assert(scope != null, 'AppScope not found above this widget');
-    return scope!;
+    return scope!.services;
   }
 
   @override
-  bool updateShouldNotify(AppScope oldWidget) => state != oldWidget.state;
+  bool updateShouldNotify(AppScope oldWidget) => services != oldWidget.services;
 }

@@ -1,161 +1,71 @@
-import 'package:flutter/foundation.dart';
-
-import '../backend.dart' as backend;
+import '../domain/dates.dart';
 import 'models.dart';
-import 'notes_repository.dart';
+import 'vault_session.dart';
 
-/// Month grid (cached per month), day events and repeatables over the
-/// bridge. Writes bump [revision]; widgets refresh through a controller.
-abstract class EventsRepository {
-  ValueListenable<int> get revision;
-
-  /// Drop all caches and bump [revision] (Syncthing may have changed files).
-  Future<void> invalidate();
-
-  Future<List<CalendarCellDto>> monthGrid(
-    int year,
-    int month, {
-    required bool showRepeat,
-  });
-
-  Future<DayEventsDto> dayEvents(String dateIso);
-  Future<void> createEvent(EventDto event);
-  Future<void> updateEvent(
-    String originalDateIso,
-    BigInt sectionIndex,
-    EventDto updated,
-  );
-  Future<void> deleteEvent(String dateIso, BigInt sectionIndex);
-
-  Future<List<EventDto>> repeatables(String weekday);
-  Future<void> saveRepeatables(String weekday, List<EventDto> events);
-}
-
-class BridgeEventsRepository implements EventsRepository {
-  final _revision = ValueNotifier<int>(0);
-  final _monthCache = <String, List<CalendarCellDto>>{};
-  final _dayCache = <String, DayEventsDto>{};
-  final _repeatCache = <String, List<EventDto>>{};
-
-  @override
-  ValueListenable<int> get revision => _revision;
-
-  void _bump() {
-    _monthCache.clear();
-    _dayCache.clear();
-    _repeatCache.clear();
-    _revision.value++;
+/// Calendar months, days and weekly events. Reads are cached until the
+/// session revision moves; writes go through [VaultSession.write].
+class EventsRepository {
+  EventsRepository(this._session) {
+    _session.revision.addListener(_cache.clear);
   }
 
-  @override
-  Future<void> invalidate() async {
-    _monthCache.clear();
-    _dayCache.clear();
-    _repeatCache.clear();
-    _revision.value++;
-  }
+  final VaultSession _session;
+  final _cache = <String, Future<Object>>{};
 
-  Future<T> _guard<T>(Future<T> Function() call) async {
+  Future<T> _cached<T extends Object>(
+    String key,
+    Future<T> Function() load,
+  ) async {
+    final hit = _cache[key];
+    if (hit != null) return await hit as T;
+    final future = load();
+    _cache[key] = future;
     try {
-      return await call();
-    } catch (e) {
-      throw NotesFailure(backend.Backend.errMsg(e));
+      return await future;
+    } on Object {
+      _cache.remove(key)?.ignore(); // let the next call retry
+      rethrow;
     }
   }
 
-  @override
-  Future<List<CalendarCellDto>> monthGrid(
-    int year,
-    int month, {
-    required bool showRepeat,
-  }) async {
-    final key = '$year-$month-$showRepeat';
-    final cached = _monthCache[key];
-    if (cached != null) return cached;
-    final cells = await _guard(
-      () => backend.getCalendarMonth(
-        rootDir: backend.Backend.root,
-        year: year,
-        month: month,
-        showRepeat: showRepeat,
-      ),
-    );
-    _monthCache[key] = cells;
-    return cells;
-  }
+  Future<List<CalendarCellDto>> month(
+    DateTime month, {
+    required bool showWeekly,
+  }) => _cached(
+    'm:${month.year}-${month.month}-$showWeekly',
+    () => _session.read(
+      (v) =>
+          v.month(year: month.year, month: month.month, showWeekly: showWeekly),
+    ),
+  );
 
-  @override
-  Future<DayEventsDto> dayEvents(String dateIso) async {
-    final cached = _dayCache[dateIso];
-    if (cached != null) return cached;
-    final day = await _guard(
-      () =>
-          backend.getDayEvents(rootDir: backend.Backend.root, dateIso: dateIso),
-    );
-    _dayCache[dateIso] = day;
-    return day;
-  }
+  Future<List<EventDto>> day(DateTime date) => _cached(
+    'd:${isoOf(date)}',
+    () => _session.read((v) => v.day(dateIso: isoOf(date))),
+  );
 
-  @override
-  Future<void> createEvent(EventDto event) async {
-    await _guard(
-      () => backend.createEvent(rootDir: backend.Backend.root, event: event),
-    );
-    _bump();
-  }
+  /// Every event in `from..=to` (at most 92 days), by date then time.
+  Future<List<EventDto>> range(DateTime from, DateTime to) => _cached(
+    'r:${isoOf(from)}:${isoOf(to)}',
+    () => _session.read((v) => v.range(fromIso: isoOf(from), toIso: isoOf(to))),
+  );
 
-  @override
-  Future<void> updateEvent(
-    String originalDateIso,
-    BigInt sectionIndex,
-    EventDto updated,
-  ) async {
-    await _guard(
-      () => backend.updateSingleEvent(
-        rootDir: backend.Backend.root,
-        originalDateIso: originalDateIso,
-        sectionIndex: sectionIndex,
-        updated: updated,
-      ),
-    );
-    _bump();
-  }
+  Future<List<EventDto>> weekly(Weekday day) => _cached(
+    'w:${day.name}',
+    () => _session.read((v) => v.weekly(weekday: day)),
+  );
 
-  @override
-  Future<void> deleteEvent(String dateIso, BigInt sectionIndex) async {
-    await _guard(
-      () => backend.deleteSingleEvent(
-        rootDir: backend.Backend.root,
-        dateIso: dateIso,
-        sectionIndex: sectionIndex,
-      ),
-    );
-    _bump();
-  }
+  Future<void> add(EventDto event) =>
+      _session.write((v) => v.addEvent(event: event));
 
-  @override
-  Future<List<EventDto>> repeatables(String weekday) async {
-    final cached = _repeatCache[weekday];
-    if (cached != null) return cached;
-    final events = await _guard(
-      () => backend.getRepeatableWeekday(
-        rootDir: backend.Backend.root,
-        weekday: weekday,
-      ),
-    );
-    _repeatCache[weekday] = events;
-    return events;
-  }
+  /// Replace [original] exactly as it was read; fails with
+  /// [ErrorKind.changed] when sync changed it meanwhile.
+  Future<void> update(EventDto original, EventDto updated) => _session.write(
+    (v) => v.updateEvent(original: original, updated: updated),
+  );
 
-  @override
-  Future<void> saveRepeatables(String weekday, List<EventDto> events) async {
-    await _guard(
-      () => backend.saveRepeatableWeekday(
-        rootDir: backend.Backend.root,
-        weekday: weekday,
-        events: events,
-      ),
-    );
-    _bump();
-  }
+  Future<void> delete(EventDto original) =>
+      _session.write((v) => v.deleteEvent(original: original));
+
+  void dispose() => _session.revision.removeListener(_cache.clear);
 }

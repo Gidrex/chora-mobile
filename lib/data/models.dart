@@ -1,11 +1,18 @@
-export 'package:chora_mobile/src/rust/api.dart'
+export '../src/rust/api/types.dart'
     show
+        AgentTask,
         CalendarCellDto,
-        CaptureRequest,
-        DayEventsDto,
+        ConflictChoice,
+        ConflictDto,
         EventDto,
-        NoteContentDto,
+        EventSource,
+        NoteCapture,
+        NoteDto,
         NoteFileDto,
+        OldEventPolicy,
         Priority,
         ProjectDto,
-        SecurityLevel;
+        SecurityLevel,
+        SweepDto,
+        Weekday;
+export 'vault_session.dart' show AppFailure, ErrorKind;
