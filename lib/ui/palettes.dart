@@ -1,7 +1,6 @@
-import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/material.dart';
 
-import 'ui/theme_helpers.dart';
+// Raw preset colors live here and in theme.dart only (architecture test).
 
 /// Mid-tone accents readable on both light and dark surfaces.
 const _obsidianAccents = [
@@ -40,77 +39,43 @@ const _monoLightAccents = [
   Color(0xFF8A8A8A),
 ];
 
-/// Moonlit pastels on charcoal: readable on both light and dark surfaces.
-const _ambientAccents = [
-  Color(0xFF3D9A78),
-  Color(0xFF4A7DC2),
-  Color(0xFFD97A4A),
-  Color(0xFF8B7BD0),
-  Color(0xFFC65D7E),
-  Color(0xFFB78A2E),
+/// Ambient Night pastels (night sky reference): mint, sky, peach,
+/// lavender, pink, moon yellow. Dark uses them as is; light uses deeper
+/// shades of the same hues for contrast on paper.
+const _ambientDarkAccents = [
+  Color(0xFF94D9C2),
+  Color(0xFF92B8F0),
+  Color(0xFFF7B58C),
+  Color(0xFFB6A6F0),
+  Color(0xFFF2A7BE),
+  Color(0xFFF3D27A),
 ];
 
-List<Color> _dynamicAccents(ColorScheme s) {
-  Color shift(Color c, double by) {
-    final hsl = HSLColor.fromColor(c);
-    return hsl.withLightness((hsl.lightness + by).clamp(0.0, 1.0)).toColor();
-  }
+const _ambientLightAccents = [
+  Color(0xFF2E8A6E),
+  Color(0xFF3E6DB5),
+  Color(0xFFB8622E),
+  Color(0xFF6A55C2),
+  Color(0xFFB5476E),
+  Color(0xFF8F6D12),
+];
 
+/// Six hues around the wallpaper's primary: distinct roles, one family.
+List<Color> _dynamicAccents(ColorScheme s) {
+  final base = HSLColor.fromColor(s.primary);
   return [
-    s.primary,
-    s.secondary,
-    s.tertiary,
-    s.error,
-    shift(s.primary, -0.12),
-    shift(s.secondary, 0.12),
+    for (var i = 0; i < 6; i++)
+      base
+          .withHue((base.hue + i * 60) % 360)
+          .withSaturation(base.saturation < 0.45 ? 0.45 : base.saturation)
+          .toColor(),
   ];
 }
 
-/// Cache key for preset-built themes (dynamic schemes bypass the cache:
-/// [DynamicColorBuilder] hands out a fresh scheme object per build).
-({String preset, Brightness brightness, String fontName}) _cacheKey(
-  String preset,
-  Brightness brightness,
-  String fontName,
-) => (preset: preset, brightness: brightness, fontName: fontName);
-
-final _themeCache =
-    <({String preset, Brightness brightness, String fontName}), ThemeData>{};
-
-/// Preset color schemes. `system` is resolved from [DynamicColorBuilder].
-ThemeData buildTheme({
-  required String preset,
-  required Brightness brightness,
-  required String fontName,
-  ColorScheme? dynamicScheme,
-}) {
-  if (dynamicScheme == null) {
-    return _themeCache.putIfAbsent(
-      _cacheKey(preset, brightness, fontName),
-      () => _buildTheme(
-        preset: preset,
-        brightness: brightness,
-        fontName: fontName,
-        dynamicScheme: dynamicScheme,
-      ),
-    );
-  }
-  return _buildTheme(
-    preset: preset,
-    brightness: brightness,
-    fontName: fontName,
-    dynamicScheme: dynamicScheme,
-  );
-}
-
-ThemeData _buildTheme({
-  required String preset,
-  required Brightness brightness,
-  required String fontName,
-  ColorScheme? dynamicScheme,
-}) {
+/// Fixed scheme of a preset, or null for `system` (dynamic or seeded).
+ColorScheme? presetScheme(String preset, Brightness brightness) {
   final dark = brightness == Brightness.dark;
-  final ColorScheme scheme = switch (preset) {
+  return switch (preset) {
     'obsidian' =>
       dark
           ? const ColorScheme.dark(
@@ -209,82 +174,72 @@ ThemeData _buildTheme({
     'ambient' =>
       dark
           ? const ColorScheme.dark(
-              primary: Color(0xFFF2C66D),
-              onPrimary: Color(0xFF17130A),
-              primaryContainer: Color(0xFF3A2E18),
-              onPrimaryContainer: Color(0xFFFFDFA0),
-              secondary: Color(0xFFB9A7E6),
-              onSecondary: Color(0xFF17141F),
-              secondaryContainer: Color(0xFF2A2638),
-              onSecondaryContainer: Color(0xFFD5C9F5),
-              surface: Color(0xFF101014),
-              surfaceContainer: Color(0xFF17181E),
-              surfaceContainerHigh: Color(0xFF1E2028),
-              surfaceContainerHighest: Color(0xFF282B35),
-              outlineVariant: Color(0xFF2E323D),
+              primary: Color(0xFFB6A6F0),
+              onPrimary: Color(0xFF1C1D24),
+              primaryContainer: Color(0xFF3A3456),
+              onPrimaryContainer: Color(0xFFDCD3FF),
+              secondary: Color(0xFF94D9C2),
+              onSecondary: Color(0xFF1C1D24),
+              secondaryContainer: Color(0xFF24403A),
+              onSecondaryContainer: Color(0xFFC6F1E3),
+              tertiary: Color(0xFFF7B58C),
+              onTertiary: Color(0xFF1C1D24),
+              tertiaryContainer: Color(0xFF4A3324),
+              onTertiaryContainer: Color(0xFFFFDCC6),
+              error: Color(0xFFEE8E8E),
+              onError: Color(0xFF1C1D24),
+              surface: Color(0xFF1C1D24),
+              onSurface: Color(0xFFE4E4EC),
+              onSurfaceVariant: Color(0xFF9A9BAA),
+              surfaceContainerLowest: Color(0xFF18191F),
+              surfaceContainerLow: Color(0xFF202129),
+              surfaceContainer: Color(0xFF25262F),
+              surfaceContainerHigh: Color(0xFF2C2D38),
+              surfaceContainerHighest: Color(0xFF343542),
+              outline: Color(0xFF5A5B6A),
+              outlineVariant: Color(0xFF30313D),
             )
           : const ColorScheme.light(
-              primary: Color(0xFF7A5A17),
+              primary: Color(0xFF6A55C2),
               onPrimary: Colors.white,
-              primaryContainer: Color(0xFFF3DFA8),
-              onPrimaryContainer: Color(0xFF3A2C0D),
-              secondary: Color(0xFF5B4D8F),
+              primaryContainer: Color(0xFFE6DFFF),
+              onPrimaryContainer: Color(0xFF2B2160),
+              secondary: Color(0xFF2E8A6E),
               onSecondary: Colors.white,
-              secondaryContainer: Color(0xFFE2D9FA),
-              onSecondaryContainer: Color(0xFF2A2340),
-              surface: Color(0xFFF5F2EA),
+              secondaryContainer: Color(0xFFD3F2E7),
+              onSecondaryContainer: Color(0xFF0E3A2D),
+              tertiary: Color(0xFFB8622E),
+              onTertiary: Colors.white,
+              tertiaryContainer: Color(0xFFFFE2D0),
+              onTertiaryContainer: Color(0xFF4A2410),
+              error: Color(0xFFC0474F),
+              surface: Color(0xFFF4F1F8),
+              onSurface: Color(0xFF2A2833),
+              onSurfaceVariant: Color(0xFF64627A),
+              surfaceContainerLowest: Color(0xFFFFFFFF),
+              surfaceContainerLow: Color(0xFFF9F7FC),
               surfaceContainer: Color(0xFFFFFFFF),
-              surfaceContainerHigh: Color(0xFFEDE9DD),
-              surfaceContainerHighest: Color(0xFFE2DCCC),
-              outlineVariant: Color(0xFFD8D2C2),
+              surfaceContainerHigh: Color(0xFFECE8F3),
+              surfaceContainerHighest: Color(0xFFE2DDEC),
+              outline: Color(0xFF8E8BA3),
+              outlineVariant: Color(0xFFDAD5E6),
             ),
-    _ =>
-      dynamicScheme ??
-          ColorScheme.fromSeed(seedColor: Colors.teal, brightness: brightness),
+    _ => null,
   };
+}
 
-  // Explicit brightness-matching base: GoogleFonts.*TextTheme() without an
-  // argument bakes in light (black) text colors, unreadable on dark surfaces.
-  final TextTheme fallback =
-      (dark ? ThemeData.dark() : ThemeData.light()).textTheme;
-  // Bundled offline families (assets/fonts, no runtime fetching).
-  const families = {'Onest', 'Golos Text', 'Martian Mono', 'IBM Plex Mono'};
-  final TextTheme base = fallback.apply(
-    fontFamily: families.contains(fontName) ? fontName : 'Onest',
-  );
-
-  return ThemeData(
-    colorScheme: scheme,
-    useMaterial3: true,
-    textTheme: base,
-    scaffoldBackgroundColor: scheme.surface,
-    extensions: <ThemeExtension<dynamic>>[
-      EventPalette(switch (preset) {
-        'obsidian' => _obsidianAccents,
-        'luma' => _lumaAccents,
-        'ambient' => _ambientAccents,
-        'mono' => dark ? _monoDarkAccents : _monoLightAccents,
-        _ => _dynamicAccents(scheme),
-      }),
-    ],
-    cardTheme: CardThemeData(
-      elevation: 0,
-      color: scheme.surfaceContainer,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-        side: BorderSide(color: scheme.outlineVariant, width: 1),
-      ),
-    ),
-    inputDecorationTheme: InputDecorationTheme(
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-      filled: true,
-    ),
-    segmentedButtonTheme: SegmentedButtonThemeData(
-      style: ButtonStyle(
-        shape: WidgetStatePropertyAll(
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        ),
-      ),
-    ),
-  );
+/// Six accents per preset, in [Tones.fromAccents] role order.
+List<Color> presetAccents(
+  String preset,
+  Brightness brightness,
+  ColorScheme scheme,
+) {
+  final dark = brightness == Brightness.dark;
+  return switch (preset) {
+    'obsidian' => _obsidianAccents,
+    'luma' => _lumaAccents,
+    'ambient' => dark ? _ambientDarkAccents : _ambientLightAccents,
+    'mono' => dark ? _monoDarkAccents : _monoLightAccents,
+    _ => _dynamicAccents(scheme),
+  };
 }

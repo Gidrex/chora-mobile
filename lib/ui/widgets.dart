@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'glass.dart';
+
 /// Even Material widgets shared by all screens (ref: tmp/widgets.jpg).
 /// Radii and spacing follow `.agents/design.md` tokens only:
 /// 12 for tiles/inputs, 20 for cards (from `CardTheme`), stadium for pills.
@@ -21,7 +23,7 @@ class SectionCard extends StatelessWidget {
       }
       rows.add(children[i]);
     }
-    return Card(
+    return GlassCard(
       margin: const EdgeInsets.only(bottom: 12),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 8),
