@@ -3,7 +3,9 @@
 
 // ignore_for_file: unused_import, unused_element, unnecessary_import, duplicate_ignore, invalid_use_of_internal_member, annotate_overrides, non_constant_identifier_names, curly_braces_in_flow_control_structures, prefer_const_literals_to_create_immutables, unused_field
 
-import 'api.dart';
+import 'api/error.dart';
+import 'api/types.dart';
+import 'api/vault.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'frb_generated.dart';
@@ -55,7 +57,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
 
   @override
   Future<void> executeRustInitializers() async {
-    await api.crateApiInitApp();
+    await api.crateApiVaultInitApp();
   }
 
   @override
@@ -66,7 +68,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.13.0';
 
   @override
-  int get rustContentHash => -1959791738;
+  int get rustContentHash => -1553222280;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -78,76 +80,104 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
 }
 
 abstract class RustLibApi extends BaseApi {
-  Future<void> crateApiCreateEvent({
-    required String rootDir,
+  Future<void> crateApiVaultVaultAddEvent({
+    required Vault that,
     required EventDto event,
   });
 
-  Future<void> crateApiDeleteSingleEvent({
-    required String rootDir,
-    required String dateIso,
-    required BigInt sectionIndex,
+  Future<String> crateApiVaultVaultCaptureNote({
+    required Vault that,
+    required NoteCapture capture,
   });
 
-  Future<List<CalendarCellDto>> crateApiGetCalendarMonth({
-    required String rootDir,
+  Future<List<ConflictDto>> crateApiVaultVaultConflicts({required Vault that});
+
+  Future<List<EventDto>> crateApiVaultVaultDay({
+    required Vault that,
+    required String dateIso,
+  });
+
+  Future<String> crateApiVaultVaultDelegate({
+    required Vault that,
+    required AgentTask task,
+  });
+
+  Future<void> crateApiVaultVaultDeleteEvent({
+    required Vault that,
+    required EventDto original,
+  });
+
+  Future<List<CalendarCellDto>> crateApiVaultVaultMonth({
+    required Vault that,
     required int year,
     required int month,
-    required bool showRepeat,
+    required bool showWeekly,
   });
 
-  Future<DayEventsDto> crateApiGetDayEvents({
-    required String rootDir,
-    required String dateIso,
+  Future<Vault> crateApiVaultVaultOpen({required String root});
+
+  Future<List<ProjectDto>> crateApiVaultVaultProjects({required Vault that});
+
+  Future<List<EventDto>> crateApiVaultVaultRange({
+    required Vault that,
+    required String fromIso,
+    required String toIso,
   });
 
-  Future<List<EventDto>> crateApiGetRepeatableWeekday({
-    required String rootDir,
-    required String weekday,
-  });
-
-  Future<void> crateApiInitApp();
-
-  Future<void> crateApiInitStorage({required String rootDir});
-
-  Future<List<ProjectDto>> crateApiListAllProjects({required String rootDir});
-
-  Future<NoteContentDto> crateApiReadNoteFile({
-    required String rootDir,
+  Future<NoteDto> crateApiVaultVaultReadNote({
+    required Vault that,
     required String relPath,
   });
 
-  Future<void> crateApiSaveNoteFile({
-    required String rootDir,
+  Future<void> crateApiVaultVaultResolveConflict({
+    required Vault that,
+    required String path,
+    required ConflictChoice choice,
+  });
+
+  String crateApiVaultVaultRoot({required Vault that});
+
+  Future<void> crateApiVaultVaultSaveNote({
+    required Vault that,
     required String relPath,
-    required String newBody,
+    required String text,
+    required String base,
   });
 
-  Future<void> crateApiSaveRepeatableWeekday({
-    required String rootDir,
-    required String weekday,
-    required List<EventDto> events,
+  Future<bool> crateApiVaultVaultSeedDemo({required Vault that});
+
+  Future<BigInt> crateApiVaultVaultStamp({required Vault that});
+
+  Future<SweepDto> crateApiVaultVaultSweepOldEvents({
+    required Vault that,
+    required OldEventPolicy policy,
   });
 
-  Future<String> crateApiSubmitCapture({required CaptureRequest req});
-
-  Future<String> crateApiSweepOldEvents({
-    required String rootDir,
-    required String policy,
-  });
-
-  Future<String> crateApiToggleMarkdownCheckbox({
-    required String rootDir,
+  Future<String> crateApiVaultVaultToggleTask({
+    required Vault that,
     required String relPath,
-    required BigInt lineIndex,
+    required int line,
+    required String base,
   });
 
-  Future<void> crateApiUpdateSingleEvent({
-    required String rootDir,
-    required String originalDateIso,
-    required BigInt sectionIndex,
+  Future<void> crateApiVaultVaultUpdateEvent({
+    required Vault that,
+    required EventDto original,
     required EventDto updated,
   });
+
+  Future<List<EventDto>> crateApiVaultVaultWeekly({
+    required Vault that,
+    required Weekday weekday,
+  });
+
+  Future<void> crateApiVaultInitApp();
+
+  RustArcIncrementStrongCountFnType get rust_arc_increment_strong_count_Vault;
+
+  RustArcDecrementStrongCountFnType get rust_arc_decrement_strong_count_Vault;
+
+  CrossPlatformFinalizerArg get rust_arc_decrement_strong_count_VaultPtr;
 }
 
 class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
@@ -159,15 +189,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   });
 
   @override
-  Future<void> crateApiCreateEvent({
-    required String rootDir,
+  Future<void> crateApiVaultVaultAddEvent({
+    required Vault that,
     required EventDto event,
   }) {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
           final serializer = SseSerializer(generalizedFrbRustBinding);
-          sse_encode_String(rootDir, serializer);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerVault(
+            that,
+            serializer,
+          );
           sse_encode_box_autoadd_event_dto(event, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
@@ -178,33 +211,34 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_unit,
-          decodeErrorData: sse_decode_AnyhowException,
+          decodeErrorData: sse_decode_api_error,
         ),
-        constMeta: kCrateApiCreateEventConstMeta,
-        argValues: [rootDir, event],
+        constMeta: kCrateApiVaultVaultAddEventConstMeta,
+        argValues: [that, event],
         apiImpl: this,
       ),
     );
   }
 
-  TaskConstMeta get kCrateApiCreateEventConstMeta => const TaskConstMeta(
-    debugName: "create_event",
-    argNames: ["rootDir", "event"],
+  TaskConstMeta get kCrateApiVaultVaultAddEventConstMeta => const TaskConstMeta(
+    debugName: "Vault_add_event",
+    argNames: ["that", "event"],
   );
 
   @override
-  Future<void> crateApiDeleteSingleEvent({
-    required String rootDir,
-    required String dateIso,
-    required BigInt sectionIndex,
+  Future<String> crateApiVaultVaultCaptureNote({
+    required Vault that,
+    required NoteCapture capture,
   }) {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
           final serializer = SseSerializer(generalizedFrbRustBinding);
-          sse_encode_String(rootDir, serializer);
-          sse_encode_String(dateIso, serializer);
-          sse_encode_usize(sectionIndex, serializer);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerVault(
+            that,
+            serializer,
+          );
+          sse_encode_box_autoadd_note_capture(capture, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
@@ -213,36 +247,32 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           );
         },
         codec: SseCodec(
-          decodeSuccessData: sse_decode_unit,
-          decodeErrorData: sse_decode_AnyhowException,
+          decodeSuccessData: sse_decode_String,
+          decodeErrorData: sse_decode_api_error,
         ),
-        constMeta: kCrateApiDeleteSingleEventConstMeta,
-        argValues: [rootDir, dateIso, sectionIndex],
+        constMeta: kCrateApiVaultVaultCaptureNoteConstMeta,
+        argValues: [that, capture],
         apiImpl: this,
       ),
     );
   }
 
-  TaskConstMeta get kCrateApiDeleteSingleEventConstMeta => const TaskConstMeta(
-    debugName: "delete_single_event",
-    argNames: ["rootDir", "dateIso", "sectionIndex"],
-  );
+  TaskConstMeta get kCrateApiVaultVaultCaptureNoteConstMeta =>
+      const TaskConstMeta(
+        debugName: "Vault_capture_note",
+        argNames: ["that", "capture"],
+      );
 
   @override
-  Future<List<CalendarCellDto>> crateApiGetCalendarMonth({
-    required String rootDir,
-    required int year,
-    required int month,
-    required bool showRepeat,
-  }) {
+  Future<List<ConflictDto>> crateApiVaultVaultConflicts({required Vault that}) {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
           final serializer = SseSerializer(generalizedFrbRustBinding);
-          sse_encode_String(rootDir, serializer);
-          sse_encode_i_32(year, serializer);
-          sse_encode_u_32(month, serializer);
-          sse_encode_bool(showRepeat, serializer);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerVault(
+            that,
+            serializer,
+          );
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
@@ -251,31 +281,32 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           );
         },
         codec: SseCodec(
-          decodeSuccessData: sse_decode_list_calendar_cell_dto,
-          decodeErrorData: sse_decode_AnyhowException,
+          decodeSuccessData: sse_decode_list_conflict_dto,
+          decodeErrorData: sse_decode_api_error,
         ),
-        constMeta: kCrateApiGetCalendarMonthConstMeta,
-        argValues: [rootDir, year, month, showRepeat],
+        constMeta: kCrateApiVaultVaultConflictsConstMeta,
+        argValues: [that],
         apiImpl: this,
       ),
     );
   }
 
-  TaskConstMeta get kCrateApiGetCalendarMonthConstMeta => const TaskConstMeta(
-    debugName: "get_calendar_month",
-    argNames: ["rootDir", "year", "month", "showRepeat"],
-  );
+  TaskConstMeta get kCrateApiVaultVaultConflictsConstMeta =>
+      const TaskConstMeta(debugName: "Vault_conflicts", argNames: ["that"]);
 
   @override
-  Future<DayEventsDto> crateApiGetDayEvents({
-    required String rootDir,
+  Future<List<EventDto>> crateApiVaultVaultDay({
+    required Vault that,
     required String dateIso,
   }) {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
           final serializer = SseSerializer(generalizedFrbRustBinding);
-          sse_encode_String(rootDir, serializer);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerVault(
+            that,
+            serializer,
+          );
           sse_encode_String(dateIso, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
@@ -285,32 +316,35 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           );
         },
         codec: SseCodec(
-          decodeSuccessData: sse_decode_day_events_dto,
-          decodeErrorData: sse_decode_AnyhowException,
+          decodeSuccessData: sse_decode_list_event_dto,
+          decodeErrorData: sse_decode_api_error,
         ),
-        constMeta: kCrateApiGetDayEventsConstMeta,
-        argValues: [rootDir, dateIso],
+        constMeta: kCrateApiVaultVaultDayConstMeta,
+        argValues: [that, dateIso],
         apiImpl: this,
       ),
     );
   }
 
-  TaskConstMeta get kCrateApiGetDayEventsConstMeta => const TaskConstMeta(
-    debugName: "get_day_events",
-    argNames: ["rootDir", "dateIso"],
+  TaskConstMeta get kCrateApiVaultVaultDayConstMeta => const TaskConstMeta(
+    debugName: "Vault_day",
+    argNames: ["that", "dateIso"],
   );
 
   @override
-  Future<List<EventDto>> crateApiGetRepeatableWeekday({
-    required String rootDir,
-    required String weekday,
+  Future<String> crateApiVaultVaultDelegate({
+    required Vault that,
+    required AgentTask task,
   }) {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
           final serializer = SseSerializer(generalizedFrbRustBinding);
-          sse_encode_String(rootDir, serializer);
-          sse_encode_String(weekday, serializer);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerVault(
+            that,
+            serializer,
+          );
+          sse_encode_box_autoadd_agent_task(task, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
@@ -319,28 +353,35 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           );
         },
         codec: SseCodec(
-          decodeSuccessData: sse_decode_list_event_dto,
-          decodeErrorData: sse_decode_AnyhowException,
+          decodeSuccessData: sse_decode_String,
+          decodeErrorData: sse_decode_api_error,
         ),
-        constMeta: kCrateApiGetRepeatableWeekdayConstMeta,
-        argValues: [rootDir, weekday],
+        constMeta: kCrateApiVaultVaultDelegateConstMeta,
+        argValues: [that, task],
         apiImpl: this,
       ),
     );
   }
 
-  TaskConstMeta get kCrateApiGetRepeatableWeekdayConstMeta =>
-      const TaskConstMeta(
-        debugName: "get_repeatable_weekday",
-        argNames: ["rootDir", "weekday"],
-      );
+  TaskConstMeta get kCrateApiVaultVaultDelegateConstMeta => const TaskConstMeta(
+    debugName: "Vault_delegate",
+    argNames: ["that", "task"],
+  );
 
   @override
-  Future<void> crateApiInitApp() {
+  Future<void> crateApiVaultVaultDeleteEvent({
+    required Vault that,
+    required EventDto original,
+  }) {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
           final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerVault(
+            that,
+            serializer,
+          );
+          sse_encode_box_autoadd_event_dto(original, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
@@ -350,25 +391,39 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_unit,
-          decodeErrorData: null,
+          decodeErrorData: sse_decode_api_error,
         ),
-        constMeta: kCrateApiInitAppConstMeta,
-        argValues: [],
+        constMeta: kCrateApiVaultVaultDeleteEventConstMeta,
+        argValues: [that, original],
         apiImpl: this,
       ),
     );
   }
 
-  TaskConstMeta get kCrateApiInitAppConstMeta =>
-      const TaskConstMeta(debugName: "init_app", argNames: []);
+  TaskConstMeta get kCrateApiVaultVaultDeleteEventConstMeta =>
+      const TaskConstMeta(
+        debugName: "Vault_delete_event",
+        argNames: ["that", "original"],
+      );
 
   @override
-  Future<void> crateApiInitStorage({required String rootDir}) {
+  Future<List<CalendarCellDto>> crateApiVaultVaultMonth({
+    required Vault that,
+    required int year,
+    required int month,
+    required bool showWeekly,
+  }) {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
           final serializer = SseSerializer(generalizedFrbRustBinding);
-          sse_encode_String(rootDir, serializer);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerVault(
+            that,
+            serializer,
+          );
+          sse_encode_i_32(year, serializer);
+          sse_encode_u_32(month, serializer);
+          sse_encode_bool(showWeekly, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
@@ -377,26 +432,28 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           );
         },
         codec: SseCodec(
-          decodeSuccessData: sse_decode_unit,
-          decodeErrorData: sse_decode_AnyhowException,
+          decodeSuccessData: sse_decode_list_calendar_cell_dto,
+          decodeErrorData: sse_decode_api_error,
         ),
-        constMeta: kCrateApiInitStorageConstMeta,
-        argValues: [rootDir],
+        constMeta: kCrateApiVaultVaultMonthConstMeta,
+        argValues: [that, year, month, showWeekly],
         apiImpl: this,
       ),
     );
   }
 
-  TaskConstMeta get kCrateApiInitStorageConstMeta =>
-      const TaskConstMeta(debugName: "init_storage", argNames: ["rootDir"]);
+  TaskConstMeta get kCrateApiVaultVaultMonthConstMeta => const TaskConstMeta(
+    debugName: "Vault_month",
+    argNames: ["that", "year", "month", "showWeekly"],
+  );
 
   @override
-  Future<List<ProjectDto>> crateApiListAllProjects({required String rootDir}) {
+  Future<Vault> crateApiVaultVaultOpen({required String root}) {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
           final serializer = SseSerializer(generalizedFrbRustBinding);
-          sse_encode_String(rootDir, serializer);
+          sse_encode_String(root, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
@@ -405,32 +462,30 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           );
         },
         codec: SseCodec(
-          decodeSuccessData: sse_decode_list_project_dto,
-          decodeErrorData: sse_decode_AnyhowException,
+          decodeSuccessData:
+              sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerVault,
+          decodeErrorData: sse_decode_api_error,
         ),
-        constMeta: kCrateApiListAllProjectsConstMeta,
-        argValues: [rootDir],
+        constMeta: kCrateApiVaultVaultOpenConstMeta,
+        argValues: [root],
         apiImpl: this,
       ),
     );
   }
 
-  TaskConstMeta get kCrateApiListAllProjectsConstMeta => const TaskConstMeta(
-    debugName: "list_all_projects",
-    argNames: ["rootDir"],
-  );
+  TaskConstMeta get kCrateApiVaultVaultOpenConstMeta =>
+      const TaskConstMeta(debugName: "Vault_open", argNames: ["root"]);
 
   @override
-  Future<NoteContentDto> crateApiReadNoteFile({
-    required String rootDir,
-    required String relPath,
-  }) {
+  Future<List<ProjectDto>> crateApiVaultVaultProjects({required Vault that}) {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
           final serializer = SseSerializer(generalizedFrbRustBinding);
-          sse_encode_String(rootDir, serializer);
-          sse_encode_String(relPath, serializer);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerVault(
+            that,
+            serializer,
+          );
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
@@ -439,34 +494,35 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           );
         },
         codec: SseCodec(
-          decodeSuccessData: sse_decode_note_content_dto,
-          decodeErrorData: sse_decode_AnyhowException,
+          decodeSuccessData: sse_decode_list_project_dto,
+          decodeErrorData: sse_decode_api_error,
         ),
-        constMeta: kCrateApiReadNoteFileConstMeta,
-        argValues: [rootDir, relPath],
+        constMeta: kCrateApiVaultVaultProjectsConstMeta,
+        argValues: [that],
         apiImpl: this,
       ),
     );
   }
 
-  TaskConstMeta get kCrateApiReadNoteFileConstMeta => const TaskConstMeta(
-    debugName: "read_note_file",
-    argNames: ["rootDir", "relPath"],
-  );
+  TaskConstMeta get kCrateApiVaultVaultProjectsConstMeta =>
+      const TaskConstMeta(debugName: "Vault_projects", argNames: ["that"]);
 
   @override
-  Future<void> crateApiSaveNoteFile({
-    required String rootDir,
-    required String relPath,
-    required String newBody,
+  Future<List<EventDto>> crateApiVaultVaultRange({
+    required Vault that,
+    required String fromIso,
+    required String toIso,
   }) {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
           final serializer = SseSerializer(generalizedFrbRustBinding);
-          sse_encode_String(rootDir, serializer);
-          sse_encode_String(relPath, serializer);
-          sse_encode_String(newBody, serializer);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerVault(
+            that,
+            serializer,
+          );
+          sse_encode_String(fromIso, serializer);
+          sse_encode_String(toIso, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
@@ -475,34 +531,35 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           );
         },
         codec: SseCodec(
-          decodeSuccessData: sse_decode_unit,
-          decodeErrorData: sse_decode_AnyhowException,
+          decodeSuccessData: sse_decode_list_event_dto,
+          decodeErrorData: sse_decode_api_error,
         ),
-        constMeta: kCrateApiSaveNoteFileConstMeta,
-        argValues: [rootDir, relPath, newBody],
+        constMeta: kCrateApiVaultVaultRangeConstMeta,
+        argValues: [that, fromIso, toIso],
         apiImpl: this,
       ),
     );
   }
 
-  TaskConstMeta get kCrateApiSaveNoteFileConstMeta => const TaskConstMeta(
-    debugName: "save_note_file",
-    argNames: ["rootDir", "relPath", "newBody"],
+  TaskConstMeta get kCrateApiVaultVaultRangeConstMeta => const TaskConstMeta(
+    debugName: "Vault_range",
+    argNames: ["that", "fromIso", "toIso"],
   );
 
   @override
-  Future<void> crateApiSaveRepeatableWeekday({
-    required String rootDir,
-    required String weekday,
-    required List<EventDto> events,
+  Future<NoteDto> crateApiVaultVaultReadNote({
+    required Vault that,
+    required String relPath,
   }) {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
           final serializer = SseSerializer(generalizedFrbRustBinding);
-          sse_encode_String(rootDir, serializer);
-          sse_encode_String(weekday, serializer);
-          sse_encode_list_event_dto(events, serializer);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerVault(
+            that,
+            serializer,
+          );
+          sse_encode_String(relPath, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
@@ -511,29 +568,37 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           );
         },
         codec: SseCodec(
-          decodeSuccessData: sse_decode_unit,
-          decodeErrorData: sse_decode_AnyhowException,
+          decodeSuccessData: sse_decode_note_dto,
+          decodeErrorData: sse_decode_api_error,
         ),
-        constMeta: kCrateApiSaveRepeatableWeekdayConstMeta,
-        argValues: [rootDir, weekday, events],
+        constMeta: kCrateApiVaultVaultReadNoteConstMeta,
+        argValues: [that, relPath],
         apiImpl: this,
       ),
     );
   }
 
-  TaskConstMeta get kCrateApiSaveRepeatableWeekdayConstMeta =>
-      const TaskConstMeta(
-        debugName: "save_repeatable_weekday",
-        argNames: ["rootDir", "weekday", "events"],
-      );
+  TaskConstMeta get kCrateApiVaultVaultReadNoteConstMeta => const TaskConstMeta(
+    debugName: "Vault_read_note",
+    argNames: ["that", "relPath"],
+  );
 
   @override
-  Future<String> crateApiSubmitCapture({required CaptureRequest req}) {
+  Future<void> crateApiVaultVaultResolveConflict({
+    required Vault that,
+    required String path,
+    required ConflictChoice choice,
+  }) {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
           final serializer = SseSerializer(generalizedFrbRustBinding);
-          sse_encode_box_autoadd_capture_request(req, serializer);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerVault(
+            that,
+            serializer,
+          );
+          sse_encode_String(path, serializer);
+          sse_encode_conflict_choice(choice, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
@@ -542,66 +607,66 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           );
         },
         codec: SseCodec(
-          decodeSuccessData: sse_decode_String,
-          decodeErrorData: sse_decode_AnyhowException,
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: sse_decode_api_error,
         ),
-        constMeta: kCrateApiSubmitCaptureConstMeta,
-        argValues: [req],
+        constMeta: kCrateApiVaultVaultResolveConflictConstMeta,
+        argValues: [that, path, choice],
         apiImpl: this,
       ),
     );
   }
 
-  TaskConstMeta get kCrateApiSubmitCaptureConstMeta =>
-      const TaskConstMeta(debugName: "submit_capture", argNames: ["req"]);
+  TaskConstMeta get kCrateApiVaultVaultResolveConflictConstMeta =>
+      const TaskConstMeta(
+        debugName: "Vault_resolve_conflict",
+        argNames: ["that", "path", "choice"],
+      );
 
   @override
-  Future<String> crateApiSweepOldEvents({
-    required String rootDir,
-    required String policy,
-  }) {
-    return handler.executeNormal(
-      NormalTask(
-        callFfi: (port_) {
+  String crateApiVaultVaultRoot({required Vault that}) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
           final serializer = SseSerializer(generalizedFrbRustBinding);
-          sse_encode_String(rootDir, serializer);
-          sse_encode_String(policy, serializer);
-          pdeCallFfi(
-            generalizedFrbRustBinding,
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerVault(
+            that,
             serializer,
-            funcId: 13,
-            port: port_,
           );
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 13)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_String,
-          decodeErrorData: sse_decode_AnyhowException,
+          decodeErrorData: null,
         ),
-        constMeta: kCrateApiSweepOldEventsConstMeta,
-        argValues: [rootDir, policy],
+        constMeta: kCrateApiVaultVaultRootConstMeta,
+        argValues: [that],
         apiImpl: this,
       ),
     );
   }
 
-  TaskConstMeta get kCrateApiSweepOldEventsConstMeta => const TaskConstMeta(
-    debugName: "sweep_old_events",
-    argNames: ["rootDir", "policy"],
-  );
+  TaskConstMeta get kCrateApiVaultVaultRootConstMeta =>
+      const TaskConstMeta(debugName: "Vault_root", argNames: ["that"]);
 
   @override
-  Future<String> crateApiToggleMarkdownCheckbox({
-    required String rootDir,
+  Future<void> crateApiVaultVaultSaveNote({
+    required Vault that,
     required String relPath,
-    required BigInt lineIndex,
+    required String text,
+    required String base,
   }) {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
           final serializer = SseSerializer(generalizedFrbRustBinding);
-          sse_encode_String(rootDir, serializer);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerVault(
+            that,
+            serializer,
+          );
           sse_encode_String(relPath, serializer);
-          sse_encode_usize(lineIndex, serializer);
+          sse_encode_String(text, serializer);
+          sse_encode_String(base, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
@@ -610,37 +675,31 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           );
         },
         codec: SseCodec(
-          decodeSuccessData: sse_decode_String,
-          decodeErrorData: sse_decode_AnyhowException,
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: sse_decode_api_error,
         ),
-        constMeta: kCrateApiToggleMarkdownCheckboxConstMeta,
-        argValues: [rootDir, relPath, lineIndex],
+        constMeta: kCrateApiVaultVaultSaveNoteConstMeta,
+        argValues: [that, relPath, text, base],
         apiImpl: this,
       ),
     );
   }
 
-  TaskConstMeta get kCrateApiToggleMarkdownCheckboxConstMeta =>
-      const TaskConstMeta(
-        debugName: "toggle_markdown_checkbox",
-        argNames: ["rootDir", "relPath", "lineIndex"],
-      );
+  TaskConstMeta get kCrateApiVaultVaultSaveNoteConstMeta => const TaskConstMeta(
+    debugName: "Vault_save_note",
+    argNames: ["that", "relPath", "text", "base"],
+  );
 
   @override
-  Future<void> crateApiUpdateSingleEvent({
-    required String rootDir,
-    required String originalDateIso,
-    required BigInt sectionIndex,
-    required EventDto updated,
-  }) {
+  Future<bool> crateApiVaultVaultSeedDemo({required Vault that}) {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
           final serializer = SseSerializer(generalizedFrbRustBinding);
-          sse_encode_String(rootDir, serializer);
-          sse_encode_String(originalDateIso, serializer);
-          sse_encode_usize(sectionIndex, serializer);
-          sse_encode_box_autoadd_event_dto(updated, serializer);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerVault(
+            that,
+            serializer,
+          );
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
@@ -649,25 +708,267 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           );
         },
         codec: SseCodec(
-          decodeSuccessData: sse_decode_unit,
-          decodeErrorData: sse_decode_AnyhowException,
+          decodeSuccessData: sse_decode_bool,
+          decodeErrorData: sse_decode_api_error,
         ),
-        constMeta: kCrateApiUpdateSingleEventConstMeta,
-        argValues: [rootDir, originalDateIso, sectionIndex, updated],
+        constMeta: kCrateApiVaultVaultSeedDemoConstMeta,
+        argValues: [that],
         apiImpl: this,
       ),
     );
   }
 
-  TaskConstMeta get kCrateApiUpdateSingleEventConstMeta => const TaskConstMeta(
-    debugName: "update_single_event",
-    argNames: ["rootDir", "originalDateIso", "sectionIndex", "updated"],
+  TaskConstMeta get kCrateApiVaultVaultSeedDemoConstMeta =>
+      const TaskConstMeta(debugName: "Vault_seed_demo", argNames: ["that"]);
+
+  @override
+  Future<BigInt> crateApiVaultVaultStamp({required Vault that}) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerVault(
+            that,
+            serializer,
+          );
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 16,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_u_64,
+          decodeErrorData: sse_decode_api_error,
+        ),
+        constMeta: kCrateApiVaultVaultStampConstMeta,
+        argValues: [that],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiVaultVaultStampConstMeta =>
+      const TaskConstMeta(debugName: "Vault_stamp", argNames: ["that"]);
+
+  @override
+  Future<SweepDto> crateApiVaultVaultSweepOldEvents({
+    required Vault that,
+    required OldEventPolicy policy,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerVault(
+            that,
+            serializer,
+          );
+          sse_encode_old_event_policy(policy, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 17,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_sweep_dto,
+          decodeErrorData: sse_decode_api_error,
+        ),
+        constMeta: kCrateApiVaultVaultSweepOldEventsConstMeta,
+        argValues: [that, policy],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiVaultVaultSweepOldEventsConstMeta =>
+      const TaskConstMeta(
+        debugName: "Vault_sweep_old_events",
+        argNames: ["that", "policy"],
+      );
+
+  @override
+  Future<String> crateApiVaultVaultToggleTask({
+    required Vault that,
+    required String relPath,
+    required int line,
+    required String base,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerVault(
+            that,
+            serializer,
+          );
+          sse_encode_String(relPath, serializer);
+          sse_encode_u_32(line, serializer);
+          sse_encode_String(base, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 18,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_String,
+          decodeErrorData: sse_decode_api_error,
+        ),
+        constMeta: kCrateApiVaultVaultToggleTaskConstMeta,
+        argValues: [that, relPath, line, base],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiVaultVaultToggleTaskConstMeta =>
+      const TaskConstMeta(
+        debugName: "Vault_toggle_task",
+        argNames: ["that", "relPath", "line", "base"],
+      );
+
+  @override
+  Future<void> crateApiVaultVaultUpdateEvent({
+    required Vault that,
+    required EventDto original,
+    required EventDto updated,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerVault(
+            that,
+            serializer,
+          );
+          sse_encode_box_autoadd_event_dto(original, serializer);
+          sse_encode_box_autoadd_event_dto(updated, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 19,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: sse_decode_api_error,
+        ),
+        constMeta: kCrateApiVaultVaultUpdateEventConstMeta,
+        argValues: [that, original, updated],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiVaultVaultUpdateEventConstMeta =>
+      const TaskConstMeta(
+        debugName: "Vault_update_event",
+        argNames: ["that", "original", "updated"],
+      );
+
+  @override
+  Future<List<EventDto>> crateApiVaultVaultWeekly({
+    required Vault that,
+    required Weekday weekday,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerVault(
+            that,
+            serializer,
+          );
+          sse_encode_weekday(weekday, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 20,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_list_event_dto,
+          decodeErrorData: sse_decode_api_error,
+        ),
+        constMeta: kCrateApiVaultVaultWeeklyConstMeta,
+        argValues: [that, weekday],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiVaultVaultWeeklyConstMeta => const TaskConstMeta(
+    debugName: "Vault_weekly",
+    argNames: ["that", "weekday"],
   );
 
+  @override
+  Future<void> crateApiVaultInitApp() {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 21,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiVaultInitAppConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiVaultInitAppConstMeta =>
+      const TaskConstMeta(debugName: "init_app", argNames: []);
+
+  RustArcIncrementStrongCountFnType
+  get rust_arc_increment_strong_count_Vault => wire
+      .rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerVault;
+
+  RustArcDecrementStrongCountFnType
+  get rust_arc_decrement_strong_count_Vault => wire
+      .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerVault;
+
   @protected
-  AnyhowException dco_decode_AnyhowException(dynamic raw) {
+  Vault
+  dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerVault(
+    dynamic raw,
+  ) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
-    return AnyhowException(raw as String);
+    return VaultImpl.frbInternalDcoDecode(raw as List<dynamic>);
+  }
+
+  @protected
+  Vault
+  dco_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerVault(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return VaultImpl.frbInternalDcoDecode(raw as List<dynamic>);
+  }
+
+  @protected
+  Vault
+  dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerVault(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return VaultImpl.frbInternalDcoDecode(raw as List<dynamic>);
   }
 
   @protected
@@ -677,21 +978,53 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  AgentTask dco_decode_agent_task(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 4)
+      throw Exception('unexpected arr length: expect 4 but see ${arr.length}');
+    return AgentTask(
+      title: dco_decode_String(arr[0]),
+      body: dco_decode_String(arr[1]),
+      priority: dco_decode_priority(arr[2]),
+      project: dco_decode_opt_String(arr[3]),
+    );
+  }
+
+  @protected
+  ApiError dco_decode_api_error(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 2)
+      throw Exception('unexpected arr length: expect 2 but see ${arr.length}');
+    return ApiError(
+      kind: dco_decode_error_kind(arr[0]),
+      message: dco_decode_String(arr[1]),
+    );
+  }
+
+  @protected
   bool dco_decode_bool(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as bool;
   }
 
   @protected
-  CaptureRequest dco_decode_box_autoadd_capture_request(dynamic raw) {
+  AgentTask dco_decode_box_autoadd_agent_task(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
-    return dco_decode_capture_request(raw);
+    return dco_decode_agent_task(raw);
   }
 
   @protected
   EventDto dco_decode_box_autoadd_event_dto(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return dco_decode_event_dto(raw);
+  }
+
+  @protected
+  NoteCapture dco_decode_box_autoadd_note_capture(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_note_capture(raw);
   }
 
   @protected
@@ -702,44 +1035,35 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       throw Exception('unexpected arr length: expect 5 but see ${arr.length}');
     return CalendarCellDto(
       dateIso: dco_decode_String(arr[0]),
-      dayNum: dco_decode_u_32(arr[1]),
-      inCurrentMonth: dco_decode_bool(arr[2]),
+      day: dco_decode_u_32(arr[1]),
+      inMonth: dco_decode_bool(arr[2]),
       dayTitle: dco_decode_opt_String(arr[3]),
       repeatTitle: dco_decode_opt_String(arr[4]),
     );
   }
 
   @protected
-  CaptureRequest dco_decode_capture_request(dynamic raw) {
+  ConflictChoice dco_decode_conflict_choice(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
-    final arr = raw as List<dynamic>;
-    if (arr.length != 11)
-      throw Exception('unexpected arr length: expect 11 but see ${arr.length}');
-    return CaptureRequest(
-      rootDir: dco_decode_String(arr[0]),
-      title: dco_decode_String(arr[1]),
-      body: dco_decode_String(arr[2]),
-      targetNotePath: dco_decode_opt_String(arr[3]),
-      targetHeader: dco_decode_opt_String(arr[4]),
-      delegateToAgent: dco_decode_bool(arr[5]),
-      createAsEvent: dco_decode_bool(arr[6]),
-      eventDateIso: dco_decode_opt_String(arr[7]),
-      eventTimeHhmm: dco_decode_opt_String(arr[8]),
-      eventDuration: dco_decode_opt_String(arr[9]),
-      priority: dco_decode_priority(arr[10]),
-    );
+    return ConflictChoice.values[raw as int];
   }
 
   @protected
-  DayEventsDto dco_decode_day_events_dto(dynamic raw) {
+  ConflictDto dco_decode_conflict_dto(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
     if (arr.length != 2)
       throw Exception('unexpected arr length: expect 2 but see ${arr.length}');
-    return DayEventsDto(
-      rawMarkdown: dco_decode_String(arr[0]),
-      events: dco_decode_list_event_dto(arr[1]),
+    return ConflictDto(
+      path: dco_decode_String(arr[0]),
+      original: dco_decode_String(arr[1]),
     );
+  }
+
+  @protected
+  ErrorKind dco_decode_error_kind(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return ErrorKind.values[raw as int];
   }
 
   @protected
@@ -749,14 +1073,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     if (arr.length != 7)
       throw Exception('unexpected arr length: expect 7 but see ${arr.length}');
     return EventDto(
-      index: dco_decode_usize(arr[0]),
-      title: dco_decode_String(arr[1]),
-      dateIso: dco_decode_String(arr[2]),
-      timeHhmm: dco_decode_String(arr[3]),
-      durationStr: dco_decode_String(arr[4]),
-      context: dco_decode_String(arr[5]),
-      isRepeatable: dco_decode_bool(arr[6]),
+      title: dco_decode_String(arr[0]),
+      dateIso: dco_decode_String(arr[1]),
+      startMin: dco_decode_u_32(arr[2]),
+      durationSecs: dco_decode_u_32(arr[3]),
+      context: dco_decode_String(arr[4]),
+      source: dco_decode_event_source(arr[5]),
+      index: dco_decode_u_32(arr[6]),
     );
+  }
+
+  @protected
+  EventSource dco_decode_event_source(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return EventSource.values[raw as int];
   }
 
   @protected
@@ -775,6 +1105,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   List<CalendarCellDto> dco_decode_list_calendar_cell_dto(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return (raw as List<dynamic>).map(dco_decode_calendar_cell_dto).toList();
+  }
+
+  @protected
+  List<ConflictDto> dco_decode_list_conflict_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_conflict_dto).toList();
   }
 
   @protected
@@ -802,15 +1138,30 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  NoteContentDto dco_decode_note_content_dto(dynamic raw) {
+  NoteCapture dco_decode_note_capture(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 3)
-      throw Exception('unexpected arr length: expect 3 but see ${arr.length}');
-    return NoteContentDto(
-      text: dco_decode_String(arr[0]),
-      security: dco_decode_security_level(arr[1]),
-      about: dco_decode_String(arr[2]),
+    if (arr.length != 4)
+      throw Exception('unexpected arr length: expect 4 but see ${arr.length}');
+    return NoteCapture(
+      title: dco_decode_String(arr[0]),
+      body: dco_decode_String(arr[1]),
+      notePath: dco_decode_opt_String(arr[2]),
+      header: dco_decode_opt_String(arr[3]),
+    );
+  }
+
+  @protected
+  NoteDto dco_decode_note_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 4)
+      throw Exception('unexpected arr length: expect 4 but see ${arr.length}');
+    return NoteDto(
+      relPath: dco_decode_String(arr[0]),
+      text: dco_decode_String(arr[1]),
+      security: dco_decode_security_level(arr[2]),
+      about: dco_decode_String(arr[3]),
     );
   }
 
@@ -818,15 +1169,22 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   NoteFileDto dco_decode_note_file_dto(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 5)
-      throw Exception('unexpected arr length: expect 5 but see ${arr.length}');
+    if (arr.length != 6)
+      throw Exception('unexpected arr length: expect 6 but see ${arr.length}');
     return NoteFileDto(
       relPath: dco_decode_String(arr[0]),
-      fileName: dco_decode_String(arr[1]),
-      security: dco_decode_security_level(arr[2]),
-      about: dco_decode_String(arr[3]),
-      headers: dco_decode_list_String(arr[4]),
+      name: dco_decode_String(arr[1]),
+      title: dco_decode_String(arr[2]),
+      security: dco_decode_security_level(arr[3]),
+      about: dco_decode_String(arr[4]),
+      headers: dco_decode_list_String(arr[5]),
     );
+  }
+
+  @protected
+  OldEventPolicy dco_decode_old_event_policy(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return OldEventPolicy.values[raw as int];
   }
 
   @protected
@@ -845,13 +1203,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   ProjectDto dco_decode_project_dto(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 4)
-      throw Exception('unexpected arr length: expect 4 but see ${arr.length}');
+    if (arr.length != 5)
+      throw Exception('unexpected arr length: expect 5 but see ${arr.length}');
     return ProjectDto(
-      dir: dco_decode_String(arr[0]),
-      security: dco_decode_security_level(arr[1]),
-      about: dco_decode_String(arr[2]),
-      files: dco_decode_list_note_file_dto(arr[3]),
+      name: dco_decode_String(arr[0]),
+      isLoose: dco_decode_bool(arr[1]),
+      security: dco_decode_security_level(arr[2]),
+      about: dco_decode_String(arr[3]),
+      files: dco_decode_list_note_file_dto(arr[4]),
     );
   }
 
@@ -862,9 +1221,27 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  SweepDto dco_decode_sweep_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 2)
+      throw Exception('unexpected arr length: expect 2 but see ${arr.length}');
+    return SweepDto(
+      deleted: dco_decode_u_32(arr[0]),
+      backlogged: dco_decode_u_32(arr[1]),
+    );
+  }
+
+  @protected
   int dco_decode_u_32(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as int;
+  }
+
+  @protected
+  BigInt dco_decode_u_64(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dcoDecodeU64(raw);
   }
 
   @protected
@@ -886,10 +1263,45 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  AnyhowException sse_decode_AnyhowException(SseDeserializer deserializer) {
+  Weekday dco_decode_weekday(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return Weekday.values[raw as int];
+  }
+
+  @protected
+  Vault
+  sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerVault(
+    SseDeserializer deserializer,
+  ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    var inner = sse_decode_String(deserializer);
-    return AnyhowException(inner);
+    return VaultImpl.frbInternalSseDecode(
+      sse_decode_usize(deserializer),
+      sse_decode_i_32(deserializer),
+    );
+  }
+
+  @protected
+  Vault
+  sse_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerVault(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return VaultImpl.frbInternalSseDecode(
+      sse_decode_usize(deserializer),
+      sse_decode_i_32(deserializer),
+    );
+  }
+
+  @protected
+  Vault
+  sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerVault(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return VaultImpl.frbInternalSseDecode(
+      sse_decode_usize(deserializer),
+      sse_decode_i_32(deserializer),
+    );
   }
 
   @protected
@@ -900,17 +1312,38 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  AgentTask sse_decode_agent_task(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_title = sse_decode_String(deserializer);
+    var var_body = sse_decode_String(deserializer);
+    var var_priority = sse_decode_priority(deserializer);
+    var var_project = sse_decode_opt_String(deserializer);
+    return AgentTask(
+      title: var_title,
+      body: var_body,
+      priority: var_priority,
+      project: var_project,
+    );
+  }
+
+  @protected
+  ApiError sse_decode_api_error(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_kind = sse_decode_error_kind(deserializer);
+    var var_message = sse_decode_String(deserializer);
+    return ApiError(kind: var_kind, message: var_message);
+  }
+
+  @protected
   bool sse_decode_bool(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return deserializer.buffer.getUint8() != 0;
   }
 
   @protected
-  CaptureRequest sse_decode_box_autoadd_capture_request(
-    SseDeserializer deserializer,
-  ) {
+  AgentTask sse_decode_box_autoadd_agent_task(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    return (sse_decode_capture_request(deserializer));
+    return (sse_decode_agent_task(deserializer));
   }
 
   @protected
@@ -920,78 +1353,78 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  NoteCapture sse_decode_box_autoadd_note_capture(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_note_capture(deserializer));
+  }
+
+  @protected
   CalendarCellDto sse_decode_calendar_cell_dto(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var var_dateIso = sse_decode_String(deserializer);
-    var var_dayNum = sse_decode_u_32(deserializer);
-    var var_inCurrentMonth = sse_decode_bool(deserializer);
+    var var_day = sse_decode_u_32(deserializer);
+    var var_inMonth = sse_decode_bool(deserializer);
     var var_dayTitle = sse_decode_opt_String(deserializer);
     var var_repeatTitle = sse_decode_opt_String(deserializer);
     return CalendarCellDto(
       dateIso: var_dateIso,
-      dayNum: var_dayNum,
-      inCurrentMonth: var_inCurrentMonth,
+      day: var_day,
+      inMonth: var_inMonth,
       dayTitle: var_dayTitle,
       repeatTitle: var_repeatTitle,
     );
   }
 
   @protected
-  CaptureRequest sse_decode_capture_request(SseDeserializer deserializer) {
+  ConflictChoice sse_decode_conflict_choice(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_rootDir = sse_decode_String(deserializer);
-    var var_title = sse_decode_String(deserializer);
-    var var_body = sse_decode_String(deserializer);
-    var var_targetNotePath = sse_decode_opt_String(deserializer);
-    var var_targetHeader = sse_decode_opt_String(deserializer);
-    var var_delegateToAgent = sse_decode_bool(deserializer);
-    var var_createAsEvent = sse_decode_bool(deserializer);
-    var var_eventDateIso = sse_decode_opt_String(deserializer);
-    var var_eventTimeHhmm = sse_decode_opt_String(deserializer);
-    var var_eventDuration = sse_decode_opt_String(deserializer);
-    var var_priority = sse_decode_priority(deserializer);
-    return CaptureRequest(
-      rootDir: var_rootDir,
-      title: var_title,
-      body: var_body,
-      targetNotePath: var_targetNotePath,
-      targetHeader: var_targetHeader,
-      delegateToAgent: var_delegateToAgent,
-      createAsEvent: var_createAsEvent,
-      eventDateIso: var_eventDateIso,
-      eventTimeHhmm: var_eventTimeHhmm,
-      eventDuration: var_eventDuration,
-      priority: var_priority,
-    );
+    var inner = sse_decode_i_32(deserializer);
+    return ConflictChoice.values[inner];
   }
 
   @protected
-  DayEventsDto sse_decode_day_events_dto(SseDeserializer deserializer) {
+  ConflictDto sse_decode_conflict_dto(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_rawMarkdown = sse_decode_String(deserializer);
-    var var_events = sse_decode_list_event_dto(deserializer);
-    return DayEventsDto(rawMarkdown: var_rawMarkdown, events: var_events);
+    var var_path = sse_decode_String(deserializer);
+    var var_original = sse_decode_String(deserializer);
+    return ConflictDto(path: var_path, original: var_original);
+  }
+
+  @protected
+  ErrorKind sse_decode_error_kind(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var inner = sse_decode_i_32(deserializer);
+    return ErrorKind.values[inner];
   }
 
   @protected
   EventDto sse_decode_event_dto(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_index = sse_decode_usize(deserializer);
     var var_title = sse_decode_String(deserializer);
     var var_dateIso = sse_decode_String(deserializer);
-    var var_timeHhmm = sse_decode_String(deserializer);
-    var var_durationStr = sse_decode_String(deserializer);
+    var var_startMin = sse_decode_u_32(deserializer);
+    var var_durationSecs = sse_decode_u_32(deserializer);
     var var_context = sse_decode_String(deserializer);
-    var var_isRepeatable = sse_decode_bool(deserializer);
+    var var_source = sse_decode_event_source(deserializer);
+    var var_index = sse_decode_u_32(deserializer);
     return EventDto(
-      index: var_index,
       title: var_title,
       dateIso: var_dateIso,
-      timeHhmm: var_timeHhmm,
-      durationStr: var_durationStr,
+      startMin: var_startMin,
+      durationSecs: var_durationSecs,
       context: var_context,
-      isRepeatable: var_isRepeatable,
+      source: var_source,
+      index: var_index,
     );
+  }
+
+  @protected
+  EventSource sse_decode_event_source(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var inner = sse_decode_i_32(deserializer);
+    return EventSource.values[inner];
   }
 
   @protected
@@ -1022,6 +1455,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var ans_ = <CalendarCellDto>[];
     for (var idx_ = 0; idx_ < len_; ++idx_) {
       ans_.add(sse_decode_calendar_cell_dto(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
+  List<ConflictDto> sse_decode_list_conflict_dto(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <ConflictDto>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_conflict_dto(deserializer));
     }
     return ans_;
   }
@@ -1072,12 +1517,29 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  NoteContentDto sse_decode_note_content_dto(SseDeserializer deserializer) {
+  NoteCapture sse_decode_note_capture(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_title = sse_decode_String(deserializer);
+    var var_body = sse_decode_String(deserializer);
+    var var_notePath = sse_decode_opt_String(deserializer);
+    var var_header = sse_decode_opt_String(deserializer);
+    return NoteCapture(
+      title: var_title,
+      body: var_body,
+      notePath: var_notePath,
+      header: var_header,
+    );
+  }
+
+  @protected
+  NoteDto sse_decode_note_dto(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_relPath = sse_decode_String(deserializer);
     var var_text = sse_decode_String(deserializer);
     var var_security = sse_decode_security_level(deserializer);
     var var_about = sse_decode_String(deserializer);
-    return NoteContentDto(
+    return NoteDto(
+      relPath: var_relPath,
       text: var_text,
       security: var_security,
       about: var_about,
@@ -1088,17 +1550,26 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   NoteFileDto sse_decode_note_file_dto(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var var_relPath = sse_decode_String(deserializer);
-    var var_fileName = sse_decode_String(deserializer);
+    var var_name = sse_decode_String(deserializer);
+    var var_title = sse_decode_String(deserializer);
     var var_security = sse_decode_security_level(deserializer);
     var var_about = sse_decode_String(deserializer);
     var var_headers = sse_decode_list_String(deserializer);
     return NoteFileDto(
       relPath: var_relPath,
-      fileName: var_fileName,
+      name: var_name,
+      title: var_title,
       security: var_security,
       about: var_about,
       headers: var_headers,
     );
+  }
+
+  @protected
+  OldEventPolicy sse_decode_old_event_policy(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var inner = sse_decode_i_32(deserializer);
+    return OldEventPolicy.values[inner];
   }
 
   @protected
@@ -1122,12 +1593,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   @protected
   ProjectDto sse_decode_project_dto(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_dir = sse_decode_String(deserializer);
+    var var_name = sse_decode_String(deserializer);
+    var var_isLoose = sse_decode_bool(deserializer);
     var var_security = sse_decode_security_level(deserializer);
     var var_about = sse_decode_String(deserializer);
     var var_files = sse_decode_list_note_file_dto(deserializer);
     return ProjectDto(
-      dir: var_dir,
+      name: var_name,
+      isLoose: var_isLoose,
       security: var_security,
       about: var_about,
       files: var_files,
@@ -1142,9 +1615,23 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  SweepDto sse_decode_sweep_dto(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_deleted = sse_decode_u_32(deserializer);
+    var var_backlogged = sse_decode_u_32(deserializer);
+    return SweepDto(deleted: var_deleted, backlogged: var_backlogged);
+  }
+
+  @protected
   int sse_decode_u_32(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return deserializer.buffer.getUint32();
+  }
+
+  @protected
+  BigInt sse_decode_u_64(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return deserializer.buffer.getBigUint64();
   }
 
   @protected
@@ -1165,12 +1652,49 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  void sse_encode_AnyhowException(
-    AnyhowException self,
+  Weekday sse_decode_weekday(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var inner = sse_decode_i_32(deserializer);
+    return Weekday.values[inner];
+  }
+
+  @protected
+  void
+  sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerVault(
+    Vault self,
     SseSerializer serializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_String(self.message, serializer);
+    sse_encode_usize(
+      (self as VaultImpl).frbInternalSseEncode(move: true),
+      serializer,
+    );
+  }
+
+  @protected
+  void
+  sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerVault(
+    Vault self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_usize(
+      (self as VaultImpl).frbInternalSseEncode(move: false),
+      serializer,
+    );
+  }
+
+  @protected
+  void
+  sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerVault(
+    Vault self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_usize(
+      (self as VaultImpl).frbInternalSseEncode(move: null),
+      serializer,
+    );
   }
 
   @protected
@@ -1180,18 +1704,34 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_agent_task(AgentTask self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.title, serializer);
+    sse_encode_String(self.body, serializer);
+    sse_encode_priority(self.priority, serializer);
+    sse_encode_opt_String(self.project, serializer);
+  }
+
+  @protected
+  void sse_encode_api_error(ApiError self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_error_kind(self.kind, serializer);
+    sse_encode_String(self.message, serializer);
+  }
+
+  @protected
   void sse_encode_bool(bool self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     serializer.buffer.putUint8(self ? 1 : 0);
   }
 
   @protected
-  void sse_encode_box_autoadd_capture_request(
-    CaptureRequest self,
+  void sse_encode_box_autoadd_agent_task(
+    AgentTask self,
     SseSerializer serializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_capture_request(self, serializer);
+    sse_encode_agent_task(self, serializer);
   }
 
   @protected
@@ -1204,54 +1744,65 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_box_autoadd_note_capture(
+    NoteCapture self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_note_capture(self, serializer);
+  }
+
+  @protected
   void sse_encode_calendar_cell_dto(
     CalendarCellDto self,
     SseSerializer serializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_String(self.dateIso, serializer);
-    sse_encode_u_32(self.dayNum, serializer);
-    sse_encode_bool(self.inCurrentMonth, serializer);
+    sse_encode_u_32(self.day, serializer);
+    sse_encode_bool(self.inMonth, serializer);
     sse_encode_opt_String(self.dayTitle, serializer);
     sse_encode_opt_String(self.repeatTitle, serializer);
   }
 
   @protected
-  void sse_encode_capture_request(
-    CaptureRequest self,
+  void sse_encode_conflict_choice(
+    ConflictChoice self,
     SseSerializer serializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_String(self.rootDir, serializer);
-    sse_encode_String(self.title, serializer);
-    sse_encode_String(self.body, serializer);
-    sse_encode_opt_String(self.targetNotePath, serializer);
-    sse_encode_opt_String(self.targetHeader, serializer);
-    sse_encode_bool(self.delegateToAgent, serializer);
-    sse_encode_bool(self.createAsEvent, serializer);
-    sse_encode_opt_String(self.eventDateIso, serializer);
-    sse_encode_opt_String(self.eventTimeHhmm, serializer);
-    sse_encode_opt_String(self.eventDuration, serializer);
-    sse_encode_priority(self.priority, serializer);
+    sse_encode_i_32(self.index, serializer);
   }
 
   @protected
-  void sse_encode_day_events_dto(DayEventsDto self, SseSerializer serializer) {
+  void sse_encode_conflict_dto(ConflictDto self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_String(self.rawMarkdown, serializer);
-    sse_encode_list_event_dto(self.events, serializer);
+    sse_encode_String(self.path, serializer);
+    sse_encode_String(self.original, serializer);
+  }
+
+  @protected
+  void sse_encode_error_kind(ErrorKind self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.index, serializer);
   }
 
   @protected
   void sse_encode_event_dto(EventDto self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_usize(self.index, serializer);
     sse_encode_String(self.title, serializer);
     sse_encode_String(self.dateIso, serializer);
-    sse_encode_String(self.timeHhmm, serializer);
-    sse_encode_String(self.durationStr, serializer);
+    sse_encode_u_32(self.startMin, serializer);
+    sse_encode_u_32(self.durationSecs, serializer);
     sse_encode_String(self.context, serializer);
-    sse_encode_bool(self.isRepeatable, serializer);
+    sse_encode_event_source(self.source, serializer);
+    sse_encode_u_32(self.index, serializer);
+  }
+
+  @protected
+  void sse_encode_event_source(EventSource self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.index, serializer);
   }
 
   @protected
@@ -1278,6 +1829,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_i_32(self.length, serializer);
     for (final item in self) {
       sse_encode_calendar_cell_dto(item, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_list_conflict_dto(
+    List<ConflictDto> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_conflict_dto(item, serializer);
     }
   }
 
@@ -1328,11 +1891,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  void sse_encode_note_content_dto(
-    NoteContentDto self,
-    SseSerializer serializer,
-  ) {
+  void sse_encode_note_capture(NoteCapture self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.title, serializer);
+    sse_encode_String(self.body, serializer);
+    sse_encode_opt_String(self.notePath, serializer);
+    sse_encode_opt_String(self.header, serializer);
+  }
+
+  @protected
+  void sse_encode_note_dto(NoteDto self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.relPath, serializer);
     sse_encode_String(self.text, serializer);
     sse_encode_security_level(self.security, serializer);
     sse_encode_String(self.about, serializer);
@@ -1342,10 +1912,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   void sse_encode_note_file_dto(NoteFileDto self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_String(self.relPath, serializer);
-    sse_encode_String(self.fileName, serializer);
+    sse_encode_String(self.name, serializer);
+    sse_encode_String(self.title, serializer);
     sse_encode_security_level(self.security, serializer);
     sse_encode_String(self.about, serializer);
     sse_encode_list_String(self.headers, serializer);
+  }
+
+  @protected
+  void sse_encode_old_event_policy(
+    OldEventPolicy self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.index, serializer);
   }
 
   @protected
@@ -1367,7 +1947,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   @protected
   void sse_encode_project_dto(ProjectDto self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_String(self.dir, serializer);
+    sse_encode_String(self.name, serializer);
+    sse_encode_bool(self.isLoose, serializer);
     sse_encode_security_level(self.security, serializer);
     sse_encode_String(self.about, serializer);
     sse_encode_list_note_file_dto(self.files, serializer);
@@ -1380,9 +1961,22 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_sweep_dto(SweepDto self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_u_32(self.deleted, serializer);
+    sse_encode_u_32(self.backlogged, serializer);
+  }
+
+  @protected
   void sse_encode_u_32(int self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     serializer.buffer.putUint32(self);
+  }
+
+  @protected
+  void sse_encode_u_64(BigInt self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    serializer.buffer.putBigUint64(self);
   }
 
   @protected
@@ -1401,4 +1995,154 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     serializer.buffer.putBigUint64(self);
   }
+
+  @protected
+  void sse_encode_weekday(Weekday self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.index, serializer);
+  }
+}
+
+@sealed
+class VaultImpl extends RustOpaque implements Vault {
+  // Not to be used by end users
+  VaultImpl.frbInternalDcoDecode(List<dynamic> wire)
+    : super.frbInternalDcoDecode(wire, _kStaticData);
+
+  // Not to be used by end users
+  VaultImpl.frbInternalSseDecode(BigInt ptr, int externalSizeOnNative)
+    : super.frbInternalSseDecode(ptr, externalSizeOnNative, _kStaticData);
+
+  static final _kStaticData = RustArcStaticData(
+    rustArcIncrementStrongCount:
+        RustLib.instance.api.rust_arc_increment_strong_count_Vault,
+    rustArcDecrementStrongCount:
+        RustLib.instance.api.rust_arc_decrement_strong_count_Vault,
+    rustArcDecrementStrongCountPtr:
+        RustLib.instance.api.rust_arc_decrement_strong_count_VaultPtr,
+  );
+
+  /// Add an event (`index` ignored).
+  Future<void> addEvent({required EventDto event}) =>
+      RustLib.instance.api.crateApiVaultVaultAddEvent(that: this, event: event);
+
+  /// Append a capture (default `inbox.md`); returns the path relative to `notes/`.
+  Future<String> captureNote({required NoteCapture capture}) => RustLib
+      .instance
+      .api
+      .crateApiVaultVaultCaptureNote(that: this, capture: capture);
+
+  /// Syncthing conflict copies.
+  Future<List<ConflictDto>> conflicts() =>
+      RustLib.instance.api.crateApiVaultVaultConflicts(that: this);
+
+  /// Events of one day (day file + weekly), by start time.
+  Future<List<EventDto>> day({required String dateIso}) =>
+      RustLib.instance.api.crateApiVaultVaultDay(that: this, dateIso: dateIso);
+
+  /// Write a task for the agent; returns the path relative to the root.
+  Future<String> delegate({required AgentTask task}) =>
+      RustLib.instance.api.crateApiVaultVaultDelegate(that: this, task: task);
+
+  /// Delete `original` (exactly as read).
+  Future<void> deleteEvent({required EventDto original}) => RustLib.instance.api
+      .crateApiVaultVaultDeleteEvent(that: this, original: original);
+
+  /// 42 month-grid cells with first-event titles.
+  Future<List<CalendarCellDto>> month({
+    required int year,
+    required int month,
+    required bool showWeekly,
+  }) => RustLib.instance.api.crateApiVaultVaultMonth(
+    that: this,
+    year: year,
+    month: month,
+    showWeekly: showWeekly,
+  );
+
+  /// All projects plus the loose files group, with headers per file
+  /// (critical clearance: the Flutter gate decides what to show).
+  Future<List<ProjectDto>> projects() =>
+      RustLib.instance.api.crateApiVaultVaultProjects(that: this);
+
+  /// Events of every day in `from..=to` (at most 92 days), by date then time.
+  Future<List<EventDto>> range({
+    required String fromIso,
+    required String toIso,
+  }) => RustLib.instance.api.crateApiVaultVaultRange(
+    that: this,
+    fromIso: fromIso,
+    toIso: toIso,
+  );
+
+  /// One note by path relative to `notes/`.
+  Future<NoteDto> readNote({required String relPath}) => RustLib.instance.api
+      .crateApiVaultVaultReadNote(that: this, relPath: relPath);
+
+  /// Resolve one conflict copy (path relative to the root).
+  Future<void> resolveConflict({
+    required String path,
+    required ConflictChoice choice,
+  }) => RustLib.instance.api.crateApiVaultVaultResolveConflict(
+    that: this,
+    path: path,
+    choice: choice,
+  );
+
+  /// Absolute storage path.
+  String get root => RustLib.instance.api.crateApiVaultVaultRoot(that: this);
+
+  /// Overwrite a note; `base` is the text it was edited from (`Changed` when the file moved on).
+  Future<void> saveNote({
+    required String relPath,
+    required String text,
+    required String base,
+  }) => RustLib.instance.api.crateApiVaultVaultSaveNote(
+    that: this,
+    relPath: relPath,
+    text: text,
+    base: base,
+  );
+
+  /// Sample content for an empty storage; false when notes already exist.
+  Future<bool> seedDemo() =>
+      RustLib.instance.api.crateApiVaultVaultSeedDemo(that: this);
+
+  /// Metadata fingerprint; reload only when it changes.
+  Future<BigInt> stamp() =>
+      RustLib.instance.api.crateApiVaultVaultStamp(that: this);
+
+  /// Delete or archive past day files.
+  Future<SweepDto> sweepOldEvents({required OldEventPolicy policy}) => RustLib
+      .instance
+      .api
+      .crateApiVaultVaultSweepOldEvents(that: this, policy: policy);
+
+  /// Flip the task checkbox on raw line `line` of `base`; returns the new text.
+  Future<String> toggleTask({
+    required String relPath,
+    required int line,
+    required String base,
+  }) => RustLib.instance.api.crateApiVaultVaultToggleTask(
+    that: this,
+    relPath: relPath,
+    line: line,
+    base: base,
+  );
+
+  /// Replace `original` (exactly as read) with `updated`; moves across days and weekly.
+  Future<void> updateEvent({
+    required EventDto original,
+    required EventDto updated,
+  }) => RustLib.instance.api.crateApiVaultVaultUpdateEvent(
+    that: this,
+    original: original,
+    updated: updated,
+  );
+
+  /// Weekly events of `weekday`, dated on its next occurrence from today.
+  Future<List<EventDto>> weekly({required Weekday weekday}) => RustLib
+      .instance
+      .api
+      .crateApiVaultVaultWeekly(that: this, weekday: weekday);
 }

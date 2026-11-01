@@ -6,7 +6,9 @@
 // Static analysis wrongly picks the IO variant, thus ignore this
 // ignore_for_file: argument_type_not_assignable
 
-import 'api.dart';
+import 'api/error.dart';
+import 'api/types.dart';
+import 'api/vault.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'frb_generated.dart';
@@ -20,32 +22,65 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     required super.portManager,
   });
 
+  CrossPlatformFinalizerArg get rust_arc_decrement_strong_count_VaultPtr => wire
+      .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerVault;
+
   @protected
-  AnyhowException dco_decode_AnyhowException(dynamic raw);
+  Vault
+  dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerVault(
+    dynamic raw,
+  );
+
+  @protected
+  Vault
+  dco_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerVault(
+    dynamic raw,
+  );
+
+  @protected
+  Vault
+  dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerVault(
+    dynamic raw,
+  );
 
   @protected
   String dco_decode_String(dynamic raw);
 
   @protected
+  AgentTask dco_decode_agent_task(dynamic raw);
+
+  @protected
+  ApiError dco_decode_api_error(dynamic raw);
+
+  @protected
   bool dco_decode_bool(dynamic raw);
 
   @protected
-  CaptureRequest dco_decode_box_autoadd_capture_request(dynamic raw);
+  AgentTask dco_decode_box_autoadd_agent_task(dynamic raw);
 
   @protected
   EventDto dco_decode_box_autoadd_event_dto(dynamic raw);
 
   @protected
+  NoteCapture dco_decode_box_autoadd_note_capture(dynamic raw);
+
+  @protected
   CalendarCellDto dco_decode_calendar_cell_dto(dynamic raw);
 
   @protected
-  CaptureRequest dco_decode_capture_request(dynamic raw);
+  ConflictChoice dco_decode_conflict_choice(dynamic raw);
 
   @protected
-  DayEventsDto dco_decode_day_events_dto(dynamic raw);
+  ConflictDto dco_decode_conflict_dto(dynamic raw);
+
+  @protected
+  ErrorKind dco_decode_error_kind(dynamic raw);
 
   @protected
   EventDto dco_decode_event_dto(dynamic raw);
+
+  @protected
+  EventSource dco_decode_event_source(dynamic raw);
 
   @protected
   int dco_decode_i_32(dynamic raw);
@@ -55,6 +90,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<CalendarCellDto> dco_decode_list_calendar_cell_dto(dynamic raw);
+
+  @protected
+  List<ConflictDto> dco_decode_list_conflict_dto(dynamic raw);
 
   @protected
   List<EventDto> dco_decode_list_event_dto(dynamic raw);
@@ -69,10 +107,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<ProjectDto> dco_decode_list_project_dto(dynamic raw);
 
   @protected
-  NoteContentDto dco_decode_note_content_dto(dynamic raw);
+  NoteCapture dco_decode_note_capture(dynamic raw);
+
+  @protected
+  NoteDto dco_decode_note_dto(dynamic raw);
 
   @protected
   NoteFileDto dco_decode_note_file_dto(dynamic raw);
+
+  @protected
+  OldEventPolicy dco_decode_old_event_policy(dynamic raw);
 
   @protected
   String? dco_decode_opt_String(dynamic raw);
@@ -87,7 +131,13 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   SecurityLevel dco_decode_security_level(dynamic raw);
 
   @protected
+  SweepDto dco_decode_sweep_dto(dynamic raw);
+
+  @protected
   int dco_decode_u_32(dynamic raw);
+
+  @protected
+  BigInt dco_decode_u_64(dynamic raw);
 
   @protected
   int dco_decode_u_8(dynamic raw);
@@ -99,33 +149,64 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   BigInt dco_decode_usize(dynamic raw);
 
   @protected
-  AnyhowException sse_decode_AnyhowException(SseDeserializer deserializer);
+  Weekday dco_decode_weekday(dynamic raw);
+
+  @protected
+  Vault
+  sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerVault(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  Vault
+  sse_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerVault(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  Vault
+  sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerVault(
+    SseDeserializer deserializer,
+  );
 
   @protected
   String sse_decode_String(SseDeserializer deserializer);
 
   @protected
+  AgentTask sse_decode_agent_task(SseDeserializer deserializer);
+
+  @protected
+  ApiError sse_decode_api_error(SseDeserializer deserializer);
+
+  @protected
   bool sse_decode_bool(SseDeserializer deserializer);
 
   @protected
-  CaptureRequest sse_decode_box_autoadd_capture_request(
-    SseDeserializer deserializer,
-  );
+  AgentTask sse_decode_box_autoadd_agent_task(SseDeserializer deserializer);
 
   @protected
   EventDto sse_decode_box_autoadd_event_dto(SseDeserializer deserializer);
 
   @protected
+  NoteCapture sse_decode_box_autoadd_note_capture(SseDeserializer deserializer);
+
+  @protected
   CalendarCellDto sse_decode_calendar_cell_dto(SseDeserializer deserializer);
 
   @protected
-  CaptureRequest sse_decode_capture_request(SseDeserializer deserializer);
+  ConflictChoice sse_decode_conflict_choice(SseDeserializer deserializer);
 
   @protected
-  DayEventsDto sse_decode_day_events_dto(SseDeserializer deserializer);
+  ConflictDto sse_decode_conflict_dto(SseDeserializer deserializer);
+
+  @protected
+  ErrorKind sse_decode_error_kind(SseDeserializer deserializer);
 
   @protected
   EventDto sse_decode_event_dto(SseDeserializer deserializer);
+
+  @protected
+  EventSource sse_decode_event_source(SseDeserializer deserializer);
 
   @protected
   int sse_decode_i_32(SseDeserializer deserializer);
@@ -137,6 +218,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<CalendarCellDto> sse_decode_list_calendar_cell_dto(
     SseDeserializer deserializer,
   );
+
+  @protected
+  List<ConflictDto> sse_decode_list_conflict_dto(SseDeserializer deserializer);
 
   @protected
   List<EventDto> sse_decode_list_event_dto(SseDeserializer deserializer);
@@ -151,10 +235,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<ProjectDto> sse_decode_list_project_dto(SseDeserializer deserializer);
 
   @protected
-  NoteContentDto sse_decode_note_content_dto(SseDeserializer deserializer);
+  NoteCapture sse_decode_note_capture(SseDeserializer deserializer);
+
+  @protected
+  NoteDto sse_decode_note_dto(SseDeserializer deserializer);
 
   @protected
   NoteFileDto sse_decode_note_file_dto(SseDeserializer deserializer);
+
+  @protected
+  OldEventPolicy sse_decode_old_event_policy(SseDeserializer deserializer);
 
   @protected
   String? sse_decode_opt_String(SseDeserializer deserializer);
@@ -169,7 +259,13 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   SecurityLevel sse_decode_security_level(SseDeserializer deserializer);
 
   @protected
+  SweepDto sse_decode_sweep_dto(SseDeserializer deserializer);
+
+  @protected
   int sse_decode_u_32(SseDeserializer deserializer);
+
+  @protected
+  BigInt sse_decode_u_64(SseDeserializer deserializer);
 
   @protected
   int sse_decode_u_8(SseDeserializer deserializer);
@@ -181,8 +277,26 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   BigInt sse_decode_usize(SseDeserializer deserializer);
 
   @protected
-  void sse_encode_AnyhowException(
-    AnyhowException self,
+  Weekday sse_decode_weekday(SseDeserializer deserializer);
+
+  @protected
+  void
+  sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerVault(
+    Vault self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void
+  sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerVault(
+    Vault self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void
+  sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerVault(
+    Vault self,
     SseSerializer serializer,
   );
 
@@ -190,11 +304,17 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_String(String self, SseSerializer serializer);
 
   @protected
+  void sse_encode_agent_task(AgentTask self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_api_error(ApiError self, SseSerializer serializer);
+
+  @protected
   void sse_encode_bool(bool self, SseSerializer serializer);
 
   @protected
-  void sse_encode_box_autoadd_capture_request(
-    CaptureRequest self,
+  void sse_encode_box_autoadd_agent_task(
+    AgentTask self,
     SseSerializer serializer,
   );
 
@@ -205,22 +325,34 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_box_autoadd_note_capture(
+    NoteCapture self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_calendar_cell_dto(
     CalendarCellDto self,
     SseSerializer serializer,
   );
 
   @protected
-  void sse_encode_capture_request(
-    CaptureRequest self,
+  void sse_encode_conflict_choice(
+    ConflictChoice self,
     SseSerializer serializer,
   );
 
   @protected
-  void sse_encode_day_events_dto(DayEventsDto self, SseSerializer serializer);
+  void sse_encode_conflict_dto(ConflictDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_error_kind(ErrorKind self, SseSerializer serializer);
 
   @protected
   void sse_encode_event_dto(EventDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_event_source(EventSource self, SseSerializer serializer);
 
   @protected
   void sse_encode_i_32(int self, SseSerializer serializer);
@@ -231,6 +363,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_list_calendar_cell_dto(
     List<CalendarCellDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_conflict_dto(
+    List<ConflictDto> self,
     SseSerializer serializer,
   );
 
@@ -256,13 +394,19 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
-  void sse_encode_note_content_dto(
-    NoteContentDto self,
-    SseSerializer serializer,
-  );
+  void sse_encode_note_capture(NoteCapture self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_note_dto(NoteDto self, SseSerializer serializer);
 
   @protected
   void sse_encode_note_file_dto(NoteFileDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_old_event_policy(
+    OldEventPolicy self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_opt_String(String? self, SseSerializer serializer);
@@ -277,7 +421,13 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_security_level(SecurityLevel self, SseSerializer serializer);
 
   @protected
+  void sse_encode_sweep_dto(SweepDto self, SseSerializer serializer);
+
+  @protected
   void sse_encode_u_32(int self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_u_64(BigInt self, SseSerializer serializer);
 
   @protected
   void sse_encode_u_8(int self, SseSerializer serializer);
@@ -287,12 +437,31 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_usize(BigInt self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_weekday(Weekday self, SseSerializer serializer);
 }
 
 // Section: wire_class
 
 class RustLibWire implements BaseWire {
   RustLibWire.fromExternalLibrary(ExternalLibrary lib);
+
+  void
+  rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerVault(
+    int ptr,
+  ) => wasmModule
+      .rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerVault(
+        ptr,
+      );
+
+  void
+  rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerVault(
+    int ptr,
+  ) => wasmModule
+      .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerVault(
+        ptr,
+      );
 }
 
 @JS('wasm_bindgen')
@@ -300,4 +469,14 @@ external RustLibWasmModule get wasmModule;
 
 @JS()
 @anonymous
-extension type RustLibWasmModule._(JSObject _) implements JSObject {}
+extension type RustLibWasmModule._(JSObject _) implements JSObject {
+  external void
+  rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerVault(
+    int ptr,
+  );
+
+  external void
+  rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerVault(
+    int ptr,
+  );
+}
