@@ -3,88 +3,82 @@ import 'package:flutter/material.dart';
 import '../../../data/models.dart';
 import '../../../ui/theme_helpers.dart';
 import '../capture_controller.dart';
-import 'quick_bar.dart';
 import 'suggestion_list.dart';
-import 'target_chip.dart';
 
-/// Title field, target chip, suggestions, body field and quick bar.
+/// Title field, markdown body with `@`/`#` suggestions, checklist button.
 class CaptureFields extends StatelessWidget {
   const CaptureFields({
     super.key,
     required this.controller,
     required this.title,
     required this.body,
-    required this.focusNode,
+    required this.bodyFocus,
     required this.token,
-    required this.onSubmitted,
-    required this.onPickHeader,
     required this.onPickFile,
+    required this.onPickHeader,
     required this.onCheckbox,
-    required this.onProject,
-    required this.onSection,
   });
 
   final CaptureController controller;
   final TextEditingController title;
   final TextEditingController body;
-  final FocusNode focusNode;
+  final FocusNode bodyFocus;
+
+  /// Active `@`/`#` token before the cursor, null when no suggestions show.
   final String? token;
-  final ValueChanged<String> onSubmitted;
+  final ValueChanged<NoteFileDto> onPickFile;
   final ValueChanged<String> onPickHeader;
-  final Future<void> Function(NoteFileDto file, String hit) onPickFile;
   final VoidCallback onCheckbox;
-  final VoidCallback onProject;
-  final VoidCallback onSection;
 
   @override
   Widget build(BuildContext context) {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         TextField(
           controller: title,
-          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
-          decoration: const InputDecoration(
-            hintText: 'Write your thoughts...',
-            border: InputBorder.none,
-            filled: false,
-          ),
+          textCapitalization: TextCapitalization.sentences,
           textInputAction: TextInputAction.next,
-          onSubmitted: onSubmitted,
+          decoration: const InputDecoration(labelText: 'Title'),
+          onSubmitted: (_) => bodyFocus.requestFocus(),
         ),
-        const SizedBox(height: 8),
-        if (controller.targetNote != null)
-          TargetChip(
-            note: controller.targetNote!,
-            header: controller.targetHeader,
-            onClear: controller.clearTarget,
-          ),
-        if (token != null)
-          token!.startsWith('#')
-              ? HeaderSuggestions(
-                  headers: controller.headersFor(token!),
-                  onPick: onPickHeader,
-                )
-              : FileSuggestions(
-                  files: controller.fileSuggestions(token!),
-                  onPick: onPickFile,
-                ),
+        const SizedBox(height: 12),
         TextField(
           controller: body,
-          focusNode: focusNode,
-          maxLines: 8,
+          focusNode: bodyFocus,
           minLines: 4,
-          style: mono(context, size: 13.5),
-          decoration: const InputDecoration(
-            hintText: 'Markdown, - [ ] checklists, @project, #section',
+          maxLines: 10,
+          style: mono(context, size: 14),
+          decoration: InputDecoration(
+            labelText: 'Text',
+            alignLabelWithHint: true,
+            hintText: controller.mode == CaptureMode.event
+                ? 'Details'
+                : 'Markdown. Type @ for a note, # for a section',
+            suffixIcon: IconButton(
+              icon: const Icon(Icons.check_box_outlined),
+              tooltip: 'Add checklist item',
+              onPressed: onCheckbox,
+            ),
           ),
         ),
-        const SizedBox(height: 8),
-        QuickBar(
-          onCheckbox: onCheckbox,
-          onProject: onProject,
-          onSection: onSection,
-        ),
+        if (token != null) _suggestions(token!),
       ],
+    );
+  }
+
+  Widget _suggestions(String token) {
+    final query = token.substring(1);
+    if (token.startsWith('#')) {
+      return HeaderSuggestions(
+        headers: controller.headersFor(query),
+        onPick: onPickHeader,
+      );
+    }
+    return FileSuggestions(
+      files: controller.filesFor(query),
+      locked: controller.locked,
+      onPick: onPickFile,
     );
   }
 }

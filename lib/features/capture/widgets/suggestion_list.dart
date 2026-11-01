@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../../data/models.dart';
-import '../../../ui/theme_helpers.dart';
+import '../../../domain/notes_filter.dart';
+import '../../../ui/tones.dart';
 
-/// Autocomplete panel shell: elevated rounded box with capped height.
+/// Autocomplete panel: rounded box under the body field, capped height.
 class SuggestionPanel extends StatelessWidget {
   const SuggestionPanel({super.key, required this.rows});
 
@@ -13,14 +14,11 @@ class SuggestionPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.only(top: 8),
       child: Material(
         color: scheme.surfaceContainerHigh,
         clipBehavior: Clip.antiAlias,
-        shape: RoundedRectangleBorder(
-          side: BorderSide(color: scheme.primary),
-          borderRadius: BorderRadius.circular(12),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxHeight: 240),
           child: ListView(shrinkWrap: true, children: rows),
@@ -30,7 +28,7 @@ class SuggestionPanel extends StatelessWidget {
   }
 }
 
-/// `#`-header completions for the picked target file.
+/// Section completions for the picked note, as plain header titles.
 class HeaderSuggestions extends StatelessWidget {
   const HeaderSuggestions({
     super.key,
@@ -45,50 +43,96 @@ class HeaderSuggestions extends StatelessWidget {
   Widget build(BuildContext context) {
     if (headers.isEmpty) {
       return const SuggestionPanel(
-        rows: [ListTile(dense: true, title: Text('No matching headers'))],
+        rows: [ListTile(title: Text('No matching sections'))],
       );
     }
     return SuggestionPanel(
       rows: [
         for (final h in headers.take(8))
-          ListTile(
-            dense: true,
-            title: Text('# $h', style: mono(context)),
-            onTap: () => onPick(h),
-          ),
+          SectionTile(header: h, onTap: () => onPick(h)),
       ],
     );
   }
 }
 
-/// `@`-file completions. `hit` carries the joined `#header`, if any.
+/// Note completions. Locked notes show a lock instead of their headers.
 class FileSuggestions extends StatelessWidget {
-  const FileSuggestions({super.key, required this.files, required this.onPick});
+  const FileSuggestions({
+    super.key,
+    required this.files,
+    required this.locked,
+    required this.onPick,
+  });
 
-  final List<({NoteFileDto file, String hit})> files;
-  final Future<void> Function(NoteFileDto file, String hit) onPick;
+  final List<NoteFileDto> files;
+  final bool Function(NoteFileDto file) locked;
+  final ValueChanged<NoteFileDto> onPick;
 
   @override
   Widget build(BuildContext context) {
     if (files.isEmpty) {
       return const SuggestionPanel(
-        rows: [ListTile(dense: true, title: Text('No matching notes'))],
+        rows: [ListTile(title: Text('No matching notes'))],
       );
     }
     return SuggestionPanel(
       rows: [
-        for (final e in files.take(8))
-          ListTile(
-            dense: true,
-            leading: const Icon(Icons.folder_outlined, size: 18),
-            title: Text(e.file.relPath, style: mono(context)),
-            trailing: Text(
-              '[${e.file.security.name}]',
-              style: mono(context, size: 11),
-            ),
-            onTap: () => onPick(e.file, e.hit),
-          ),
+        for (final f in files.take(8))
+          FileTile(file: f, locked: locked(f), onTap: () => onPick(f)),
       ],
+    );
+  }
+}
+
+/// One note row: file icon (lock when gated), path, about.
+class FileTile extends StatelessWidget {
+  const FileTile({
+    super.key,
+    required this.file,
+    required this.locked,
+    required this.onTap,
+  });
+
+  final NoteFileDto file;
+  final bool locked;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final tones = Tones.of(context);
+    return ListTile(
+      leading: Icon(
+        locked ? Icons.lock_outline : Icons.description_outlined,
+        color: tones.file,
+        semanticLabel: locked ? 'Locked' : null,
+      ),
+      title: Text(file.name, style: TextStyle(color: tones.file)),
+      subtitle: Text(
+        [
+          noteFolder(file),
+          if (!locked && file.title.isNotEmpty) file.title,
+        ].join(' · '),
+        style: TextStyle(color: tones.muted),
+      ),
+      onTap: onTap,
+    );
+  }
+}
+
+/// One section row: tag icon and title in the section tone.
+class SectionTile extends StatelessWidget {
+  const SectionTile({super.key, required this.header, required this.onTap});
+
+  final String header;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final tone = Tones.of(context).section;
+    return ListTile(
+      leading: Icon(Icons.tag, color: tone),
+      title: Text(header, style: TextStyle(color: tone)),
+      onTap: onTap,
     );
   }
 }

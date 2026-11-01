@@ -1,48 +1,43 @@
 import 'package:flutter/material.dart';
 
 import '../../../data/settings_store.dart';
-import '../../../ui/theme_helpers.dart';
 
-/// "Visible projects" sheet. Hidden projects stay out of the list and out
-/// of Capture `@`-autocomplete. The screen rebuilds via [SettingsStore] itself.
+/// "Visible projects" sheet. Hidden projects leave the Notes list and
+/// Capture suggestions.
 Future<void> showVisibilitySheet(
   BuildContext context,
-  SettingsStore state,
-  List<String> dirs,
-) {
-  final hidden = state.hiddenProjects.toSet();
-  return showModalBottomSheet<void>(
-    context: context,
-    builder: (ctx) => StatefulBuilder(
-      builder: (ctx, setSheet) => SafeArea(
-        child: ListView(
-          shrinkWrap: true,
-          padding: const EdgeInsets.all(16),
-          children: [
-            Text(
-              'Visible projects',
-              style: Theme.of(ctx).textTheme.titleMedium,
-            ),
-            for (final dir in dirs)
-              SwitchListTile(
-                title: Text(dir, style: mono(ctx)),
-                value: !hidden.contains(dir),
-                onChanged: (v) async {
-                  hidden.remove(dir);
-                  if (!v) hidden.add(dir);
-                  await state.setHiddenProjects(hidden.toList());
-                  setSheet(() {});
-                },
-              ),
-            const Padding(
-              padding: EdgeInsets.only(top: 8),
-              child: Text(
-                'Hidden projects are excluded from Capture @-autocomplete too.',
-              ),
-            ),
-          ],
-        ),
-      ),
+  SettingsStore settings,
+  List<String> projects,
+) => showModalBottomSheet<void>(
+  context: context,
+  isScrollControlled: true,
+  showDragHandle: true,
+  builder: (_) => DraggableScrollableSheet(
+    expand: false,
+    initialChildSize: 0.5,
+    builder: (context, scroll) => ListenableBuilder(
+      listenable: settings,
+      builder: (context, _) {
+        final hidden = settings.hiddenProjects.toSet();
+        return ListView.builder(
+          controller: scroll,
+          itemCount: projects.length + 1,
+          itemBuilder: (context, i) => i == 0
+              ? const ListTile(
+                  title: Text('Visible projects'),
+                  subtitle: Text('Hidden projects stay out of Capture too.'),
+                )
+              : SwitchListTile(
+                  title: Text(projects[i - 1]),
+                  value: !hidden.contains(projects[i - 1]),
+                  onChanged: (show) => settings.setHiddenProjects(
+                    show
+                        ? (hidden..remove(projects[i - 1])).toList()
+                        : (hidden..add(projects[i - 1])).toList(),
+                  ),
+                ),
+        );
+      },
     ),
-  );
-}
+  ),
+);

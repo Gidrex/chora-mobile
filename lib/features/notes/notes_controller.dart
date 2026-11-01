@@ -2,73 +2,60 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
-import '../../data/settings_store.dart';
 import '../../data/models.dart';
 import '../../data/notes_repository.dart';
+import '../../data/settings_store.dart';
+import '../../domain/notes_filter.dart';
+import '../../domain/notes_tree.dart';
 
-/// Notes screen state: project list + one open file. Owns loaded data,
-/// `loading` and `error`; ephemeral UI (filter text, expansion, edit text)
-/// stays in the widgets. No `BuildContext`: errors surface as values.
+/// Notes tree state: loaded projects, search query, folder open/closed
+/// toggles, load/error flags.
+/// Reloads whenever the storage [revision] moves.
 class NotesController extends ChangeNotifier {
-  NotesController(this._repo, this._state) {
-    _repo.revision.addListener(_onRevision);
+  NotesController(this._repo, this._settings, this._revision) {
+    _revision.addListener(_onRevision);
+    _settings.addListener(notifyListeners);
   }
 
   final NotesRepository _repo;
-  final SettingsStore _state;
+  final SettingsStore _settings;
+  final Listenable _revision;
   bool _disposed = false;
-
-  /// notifyListeners that survives async gaps racing with dispose.
-  void _notify() {
-    if (!_disposed) notifyListeners();
-  }
 
   List<ProjectDto> _projects = const [];
   bool loading = true;
   String? error;
-  String filter = '';
-  bool showHidden = false;
+  String query = '';
+  final _toggled = <String>{};
 
-  NoteFileDto? openFile;
-  String? fileText;
-  bool fileLoading = false;
-  String? fileError;
+  /// Projects after hiding and searching.
+  List<ProjectDto> get visible => filterProjects(
+    _projects,
+    query: query,
+    hidden: _settings.hiddenProjects.toSet(),
+  );
 
-  /// One-shot user message (`Saved`, error text); widgets render and clear.
-  String? notice;
-  void consumeNotice() {
-    notice = null;
-  }
+  /// One tree per visible project; search opens every folder on the way.
+  List<List<TreeRow>> get trees => [
+    for (final p in visible)
+      projectRows(p, toggled: _toggled, expandAll: query.trim().isNotEmpty),
+  ];
 
-  SettingsStore get state => _state;
-
-  /// All project dirs (for the visibility sheet), including hidden ones.
-  List<String> get allDirs =>
-      _projects.map((p) => p.dir).where((d) => d != '(files)').toList();
-
-  /// Projects minus hidden ones (unless [showHidden]), matching [filter]
-  /// against the dir or any file path, like the old list did.
-  List<ProjectDto> get visibleProjects {
-    final hidden = _state.hiddenProjects.toSet();
-    final q = filter.trim().toLowerCase();
-    return [
-      for (final p in _projects)
-        if ((!hidden.contains(p.dir) || showHidden) &&
-            (q.isEmpty ||
-                p.dir.toLowerCase().contains(q) ||
-                p.files.any((f) => f.relPath.toLowerCase().contains(q))))
-          p,
-    ];
-  }
-
-  void toggleHidden() {
-    showHidden = !showHidden;
+  /// Open or close the folder at tree [path].
+  void toggle(String path) {
+    if (!_toggled.remove(path)) _toggled.add(path);
     _notify();
   }
 
-  void setFilter(String value) {
-    if (filter == value) return;
-    filter = value;
+  /// Names of every real project (for the visibility sheet).
+  List<String> get projectNames => [
+    for (final p in _projects)
+      if (!p.isLoose) p.name,
+  ];
+
+  void setQuery(String value) {
+    if (query == value) return;
+    query = value;
     _notify();
   }
 
@@ -78,76 +65,24 @@ class NotesController extends ChangeNotifier {
     _notify();
     try {
       _projects = await _repo.projects();
-    } on NotesFailure catch (e) {
+    } on AppFailure catch (e) {
       error = e.message;
     }
     loading = false;
     _notify();
   }
 
-  Future<void> open(NoteFileDto file) async {
-    openFile = file;
-    fileText = null;
-    fileError = null;
-    fileLoading = true;
-    _notify();
-    try {
-      fileText = (await _repo.readNote(file.relPath)).text;
-    } on NotesFailure catch (e) {
-      fileError = e.message;
-    }
-    fileLoading = false;
-    _notify();
-  }
+  void _onRevision() => unawaited(reload());
 
-  Future<bool> saveFile(String body) async {
-    final file = openFile;
-    if (file == null) return false;
-    try {
-      await _repo.saveNote(file.relPath, body);
-      fileText = body;
-      notice = 'Saved';
-      _notify();
-      return true;
-    } on NotesFailure catch (e) {
-      notice = e.message;
-      _notify();
-      return false;
-    }
-  }
-
-  Future<void> toggleLine(int lineIndex) async {
-    final file = openFile;
-    if (file == null) return;
-    try {
-      fileText = await _repo.toggleCheckbox(file.relPath, lineIndex);
-      _notify();
-    } on NotesFailure catch (e) {
-      notice = e.message;
-      _notify();
-    }
-  }
-
-  void _onRevision() {
-    // Another writer changed data: refresh list and the open file quietly.
-    unawaited(reload());
-    final file = openFile;
-    if (file != null) unawaited(_refreshFile(file));
-  }
-
-  Future<void> _refreshFile(NoteFileDto file) async {
-    try {
-      fileText = (await _repo.readNote(file.relPath)).text;
-      _notify();
-    } catch (_) {
-      // Keep the last good text; the list reload surfaces errors.
-    }
+  void _notify() {
+    if (!_disposed) notifyListeners();
   }
 
   @override
   void dispose() {
     _disposed = true;
-    _repo.revision.removeListener(_onRevision);
+    _revision.removeListener(_onRevision);
+    _settings.removeListener(notifyListeners);
     super.dispose();
   }
 }

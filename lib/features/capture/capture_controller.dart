@@ -1,265 +1,236 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 
-import '../../data/settings_store.dart';
-import '../../data/capture_repository.dart';
+import '../../data/events_repository.dart';
 import '../../data/models.dart';
 import '../../data/notes_repository.dart';
-import '../../platform/notifications.dart';
+import '../../data/settings_store.dart';
+import '../../domain/dates.dart';
 
-/// Capture draft + submission. Owns the draft (plain values; the widget
-/// owns `TextEditingController`s and mirrors text into [setTitle]/[setBody]),
-/// project list, autocomplete data and the save flow. Reminder side effects
-/// live here, not in the widget.
+/// Where a capture goes.
+enum CaptureMode { note, event, agent }
+
+/// Duration presets offered as chips, in seconds.
+const durationPresets = [15 * 60, 30 * 60, 45 * 60, 60 * 60, 120 * 60];
+
+/// Capture draft and submission. Plain values only: the screen owns the
+/// text controllers and mirrors their text into [setTitle]/[setBody].
 class CaptureController extends ChangeNotifier {
-  CaptureController(this._repo, this._state) {
-    _repo.revision.addListener(_onRevision);
+  CaptureController({
+    required NotesRepository notes,
+    required EventsRepository events,
+    required SettingsStore settings,
+    required bool Function(SecurityLevel level) locked,
+    required Listenable revision,
+    Future<void> Function(EventDto saved)? onEventSaved,
+    DateTime Function() clock = DateTime.now,
+  }) : _notes = notes,
+       _events = events,
+       _settings = settings,
+       _locked = locked,
+       _revision = revision,
+       _onEventSaved = onEventSaved,
+       _clock = clock {
+    _revision.addListener(_onRevision);
+    resetEventTime();
   }
 
-  final CaptureRepository _repo;
-  final SettingsStore _state;
+  final NotesRepository _notes;
+  final EventsRepository _events;
+  final SettingsStore _settings;
+  final bool Function(SecurityLevel level) _locked;
+  final Listenable _revision;
+  final Future<void> Function(EventDto saved)? _onEventSaved;
+  final DateTime Function() _clock;
   bool _disposed = false;
 
   List<ProjectDto> _projects = const [];
-  bool loading = true;
-  String? error;
   bool saving = false;
 
+  CaptureMode mode = CaptureMode.note;
   String title = '';
   String body = '';
-  String? targetNote;
+  NoteFileDto? target;
   String? targetHeader;
-  bool delegate = false;
-  bool asEvent = false;
-  DateTime eventDate = DateTime.now();
-  TimeOfDay eventTime = TimeOfDay.now();
-  String duration = '45m';
-  String durationManual = '45m';
   Priority priority = Priority.medium;
+  late DateTime eventDate;
+  late int startMin;
+  bool weekly = false;
 
-  /// One-shot user message (`Saved → path`, error text).
+  /// Selected preset in seconds; null = custom text in [customDuration].
+  int? presetDuration = 45 * 60;
+  String customDuration = '';
+
+  /// One-shot message for a snackbar; the screen reads and clears it.
   String? notice;
-  void consumeNotice() {
-    notice = null;
-  }
 
-  SettingsStore get state => _state;
-
-  /// Visible files minus projects hidden in Notes settings.
-  List<NoteFileDto> get visibleFiles {
-    final hidden = _state.hiddenProjects.toSet();
+  /// Files of all projects the user did not hide in Notes.
+  List<NoteFileDto> get files {
+    final hidden = _settings.hiddenProjects.toSet();
     return [
       for (final p in _projects)
-        if (!hidden.contains(p.dir)) ...p.files,
+        if (!hidden.contains(p.name)) ...p.files,
     ];
   }
 
+  bool locked(NoteFileDto file) => _locked(file.security);
+
+  int? get durationSecs => presetDuration ?? parseDuration(customDuration);
+
+  String? get durationError => presetDuration == null && durationSecs == null
+      ? 'Like 45m, 1h30m or 1:30'
+      : null;
+
   bool get dirty =>
-      title.isNotEmpty ||
-      body.isNotEmpty ||
-      targetNote != null ||
-      delegate ||
-      asEvent;
+      title.trim().isNotEmpty || body.trim().isNotEmpty || target != null;
 
-  bool get canSave => title.trim().isNotEmpty || body.trim().isNotEmpty;
+  bool get canSave {
+    if (saving) return false;
+    return switch (mode) {
+      CaptureMode.note => title.trim().isNotEmpty || body.trim().isNotEmpty,
+      CaptureMode.agent => title.trim().isNotEmpty,
+      CaptureMode.event => title.trim().isNotEmpty && durationSecs != null,
+    };
+  }
 
-  bool locked(NoteFileDto f) =>
-      _state.needsGate(f.security.name) &&
-      _state.fileUnlocked[f.relPath] != true;
-
-  /// Header completions for the picked target, or empty when locked.
-  List<String> headersFor(String token) {
-    final file = visibleFiles.cast<NoteFileDto?>().firstWhere(
-      (f) => f?.relPath == targetNote,
-      orElse: () => null,
-    );
+  /// Headers of the target matching [query], empty while it is locked.
+  List<String> headersFor(String query) {
+    final file = target;
     if (file == null || locked(file)) return const [];
-    final q = (token.startsWith('#') ? token.substring(1) : token)
-        .toLowerCase();
+    final q = query.toLowerCase();
     return file.headers.where((h) => h.toLowerCase().contains(q)).toList();
   }
 
-  /// Files matching a raw `@...` token (with optional `#header` suffix).
-  /// `hit` is the matching header when the token joins one, else empty.
-  List<({NoteFileDto file, String hit})> fileSuggestions(String token) {
-    var query = token.startsWith('@') ? token.substring(1) : token;
-    var headerQuery = '';
-    final hash = query.indexOf('#');
-    if (hash >= 0) {
-      headerQuery = query.substring(hash + 1).toLowerCase();
-      query = query.substring(0, hash);
-    }
+  /// Files whose path contains [query].
+  List<NoteFileDto> filesFor(String query) {
     final q = query.toLowerCase();
-    final joinable = hash >= 0 && headerQuery.isNotEmpty;
-    return [
-      for (final f in visibleFiles.where(
-        (f) => f.relPath.toLowerCase().contains(q),
-      ))
-        (
-          file: f,
-          hit: joinable
-              ? f.headers.firstWhere(
-                  (h) => h.toLowerCase().contains(headerQuery),
-                  orElse: () => '',
-                )
-              : '',
-        ),
-    ];
+    return files.where((f) => f.relPath.toLowerCase().contains(q)).toList();
   }
 
-  void setTitle(String v) {
-    if (title == v) return;
-    title = v;
-    _notify();
-  }
+  void setMode(CaptureMode v) => _set(() => mode = v);
+  void setTitle(String v) => _set(() => title = v);
+  void setBody(String v) => _set(() => body = v);
+  void setPriority(Priority v) => _set(() => priority = v);
+  void setWeekly(bool v) => _set(() => weekly = v);
+  void setEventDate(DateTime d) => _set(() => eventDate = dayOf(d));
+  void shiftDay(int days) => setEventDate(addDays(eventDate, days));
+  void setStartMin(int v) => _set(() => startMin = v);
+  void stepTime({required bool forward}) =>
+      setStartMin(snapQuarter(startMin, forward: forward));
+  void setPresetDuration(int? secs) => _set(() => presetDuration = secs);
+  void setCustomDuration(String v) => _set(() => customDuration = v);
 
-  void setBody(String v) {
-    if (body == v) return;
-    body = v;
-    _notify();
-  }
-
-  void pickFile(NoteFileDto file) {
-    targetNote = file.relPath;
+  /// Pick the target note. Callers unlock gated files first.
+  void pickFile(NoteFileDto file) => _set(() {
+    target = file;
     targetHeader = null;
-    _notify();
-  }
+  });
 
-  void pickHeader(String header) {
-    targetHeader = header;
-    _notify();
-  }
+  void pickHeader(String? header) => _set(() => targetHeader = header);
 
-  void clearTarget() {
-    targetNote = null;
+  void clearTarget() => _set(() {
+    target = null;
     targetHeader = null;
-    _notify();
+  });
+
+  /// Event defaults: today, next quarter hour.
+  void resetEventTime() {
+    final now = _clock();
+    eventDate = dayOf(now);
+    startMin = snapQuarter(now.hour * 60 + now.minute, forward: true);
   }
 
-  void setDelegate(bool v) {
-    delegate = v;
-    _notify();
-  }
-
-  void setAsEvent(bool v) {
-    asEvent = v;
-    _notify();
-  }
-
-  void setEventDate(DateTime d) {
-    eventDate = d;
-    _notify();
-  }
-
-  void stepEventTime(bool forward) {
-    eventTime = _snapTime(eventTime, forward);
-    _notify();
-  }
-
-  void setDuration(String v) {
-    duration = v;
-    durationManual = v;
-    _notify();
-  }
-
-  void setDurationManual(String v) {
-    durationManual = v;
-    _notify();
-  }
-
-  void setPriority(Priority p) {
-    priority = p;
-    _notify();
-  }
-
-  void clearDraft() {
+  /// Back to a fresh form; mode stays, every other choice resets.
+  void clearDraft() => _set(() {
     title = '';
     body = '';
-    targetNote = null;
+    target = null;
     targetHeader = null;
-    delegate = false;
-    asEvent = false;
-    duration = '45m';
-    durationManual = '45m';
-    _notify();
-  }
+    priority = Priority.medium;
+    weekly = false;
+    presetDuration = 45 * 60;
+    customDuration = '';
+    resetEventTime();
+  });
 
   Future<void> reload() async {
-    loading = true;
-    error = null;
-    _notify();
     try {
-      _projects = await _repo.projects();
-    } on NotesFailure catch (e) {
-      error = e.message;
+      _projects = await _notes.projects();
+    } on AppFailure catch (e) {
+      notice = e.message;
     }
-    loading = false;
     _notify();
   }
 
-  /// Submit the draft; returns the target path or null on error/empty.
-  Future<String?> save() async {
-    if (saving || !canSave) return null;
-    saving = true;
-    _notify();
+  /// Submit the draft. Returns true on success (draft cleared, [notice] set).
+  Future<bool> save() async {
+    if (!canSave) return false;
+    _set(() => saving = true);
     try {
-      final durationValue = durationManual.trim().isEmpty
-          ? duration
-          : durationManual.trim();
-      final path = await _repo.submit(
-        title: title,
-        body: body,
-        targetNotePath: targetNote,
-        targetHeader: targetHeader,
-        delegateToAgent: delegate,
-        createAsEvent: asEvent,
-        eventDateIso: asEvent ? _isoOf(eventDate) : null,
-        eventTimeHhmm: asEvent ? _hmOf(eventTime) : null,
-        eventDuration: asEvent ? durationValue : null,
-        priority: priority,
-      );
-      if (asEvent) {
-        await Reminders.rescheduleUpcoming(
-          enabled: _state.notifEnabled,
-          minutesBefore: _state.notifMinutes,
-        );
-        await Reminders.maybeAutoAlarm(
-          enabled: _state.autoAlarm,
-          mode: _state.alarmMode.name,
-          beforeMin: _state.alarmBeforeMin,
-          event: EventDto(
-            index: BigInt.zero,
+      notice = await _submit();
+      clearDraft();
+      return true;
+    } on AppFailure catch (e) {
+      notice = e.message;
+      return false;
+    } finally {
+      _set(() => saving = false);
+    }
+  }
+
+  Future<String> _submit() async {
+    switch (mode) {
+      case CaptureMode.note:
+        final path = await _notes.capture(
+          NoteCapture(
             title: title,
-            dateIso: _isoOf(eventDate),
-            timeHhmm: _hmOf(eventTime),
-            durationStr: durationValue,
-            context: body,
-            isRepeatable: false,
+            body: body,
+            notePath: target?.relPath,
+            header: targetHeader,
           ),
         );
-      }
-      clearDraft();
-      notice = 'Saved → $path';
-      _notify();
-      return path;
-    } on NotesFailure catch (e) {
-      notice = e.message;
-      _notify();
-      return null;
-    } finally {
-      saving = false;
-      _notify();
+        return 'Saved to $path';
+      case CaptureMode.agent:
+        final path = await _notes.delegate(
+          AgentTask(
+            title: title,
+            body: body,
+            priority: priority,
+            project: target?.relPath,
+          ),
+        );
+        return 'Sent to $path';
+      case CaptureMode.event:
+        await _saveEvent();
+        return 'Event added';
     }
   }
 
-  /// Display strings for the event pickers (kept here so screens stay
-  /// free of date formatting and bridge imports).
-  String get eventDateLabel => _isoOf(eventDate);
-  String get timeLabel => _hmOf(eventTime);
+  Future<void> _saveEvent() async {
+    final event = EventDto(
+      title: title.trim(),
+      dateIso: isoOf(eventDate),
+      startMin: startMin,
+      durationSecs: durationSecs!,
+      context: body.trim(),
+      source: weekly ? EventSource.weekly : EventSource.day,
+      index: 0,
+    );
+    await _events.add(event);
+    try {
+      await _onEventSaved?.call(event);
+    } on AppFailure catch (e) {
+      // The event is saved; only the optional alarm failed.
+      debugPrint('auto alarm skipped: ${e.message}');
+    }
+  }
 
-  void _onRevision() {
-    unawaited(reload());
+  void _onRevision() => unawaited(reload());
+
+  void _set(void Function() change) {
+    change();
+    _notify();
   }
 
   void _notify() {
@@ -269,21 +240,7 @@ class CaptureController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
-    _repo.revision.removeListener(_onRevision);
+    _revision.removeListener(_onRevision);
     super.dispose();
   }
-
-  static String _isoOf(DateTime d) =>
-      '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
-
-  static String _hmOf(TimeOfDay t) =>
-      '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
-}
-
-/// Snap a time to the next (or previous) 15-minute mark.
-TimeOfDay _snapTime(TimeOfDay t, bool forward) {
-  var mins = t.hour * 60 + t.minute;
-  mins = forward ? (mins ~/ 15 + 1) * 15 : ((mins - 1) ~/ 15) * 15;
-  mins = mins % (24 * 60);
-  return TimeOfDay(hour: mins ~/ 60, minute: mins % 60);
 }

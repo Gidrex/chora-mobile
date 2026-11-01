@@ -4,289 +4,284 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../app/app_scope.dart';
-import '../../data/settings_store.dart';
-import '../../auth.dart';
+import '../../app/services.dart';
 import '../../data/models.dart';
 import '../../domain/capture_text.dart';
-import '../../ui/widgets.dart';
+import '../../ui/cloud.dart';
+import '../lock/unlock.dart';
 import 'capture_controller.dart';
-import 'widgets/bento_grid.dart';
 import 'widgets/capture_fields.dart';
-import 'widgets/event_section.dart';
+import 'widgets/event_options.dart';
+import 'widgets/mode_selector.dart';
+import 'widgets/pickers.dart';
+import 'widgets/priority_selector.dart';
+import 'widgets/save_button.dart';
+import 'widgets/target_chip.dart';
 
-/// GTD inbox: title + markdown body with `@`/`#` autocomplete, bento
-/// switches (delegate / event / priority) and a Save action.
-/// Draft and submission live in [CaptureController]; this widget owns only
-/// text controllers, focus and the suggestion panel state.
+/// Quick capture: a note append, a calendar event or an agent task.
+/// The draft lives in [CaptureController]; this state owns text
+/// controllers, focus and the active autocomplete token.
 class CaptureScreen extends StatefulWidget {
-  const CaptureScreen({super.key, required this.state, required this.onSaved});
-
-  final SettingsStore state;
-  final VoidCallback onSaved;
+  const CaptureScreen({super.key});
 
   @override
-  State<CaptureScreen> createState() => CaptureScreenState();
+  State<CaptureScreen> createState() => _CaptureScreenState();
 }
 
-class CaptureScreenState extends State<CaptureScreen> {
+class _CaptureScreenState extends State<CaptureScreen> {
   final _title = TextEditingController();
   final _body = TextEditingController();
+  final _custom = TextEditingController();
   final _bodyFocus = FocusNode();
-  final _durationManual = TextEditingController(text: '45m');
-
-  CaptureController? _controller;
-  String? _token; // active @/# token, null when panel hidden
+  late final AppServices _services;
+  late final CaptureController _c;
+  String? _token;
   String _prevBody = '';
 
-  CaptureController get _c => _controller!;
-
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (_controller == null) {
-      final controller = CaptureController(
-        AppScope.captureOf(context),
-        widget.state,
-      );
-      controller
-        ..addListener(_refresh)
-        ..eventTime = _snapNow();
-      unawaited(controller.reload());
-      _controller = controller;
-      _title.addListener(() => controller.setTitle(_title.text));
-      _body.addListener(_trackToken);
-      _body.addListener(() => controller.setBody(_body.text));
-    }
-  }
-
-  static TimeOfDay _snapNow() {
-    final now = TimeOfDay.now();
-    var mins = now.hour * 60 + now.minute;
-    mins = (mins ~/ 15 + 1) * 15 % (24 * 60);
-    return TimeOfDay(hour: mins ~/ 60, minute: mins % 60);
+  void initState() {
+    super.initState();
+    _services = AppScope.of(context);
+    _c = CaptureController(
+      notes: _services.notes,
+      events: _services.events,
+      settings: _services.settings,
+      locked: _services.lock.locked,
+      revision: _services.session.revision,
+      onEventSaved: _services.reminders.afterSave,
+    )..addListener(_onChange);
+    _services.lock.addListener(_onChange);
+    _title.addListener(() => _c.setTitle(_title.text));
+    _body.addListener(_onBody);
+    unawaited(_c.reload());
   }
 
   @override
   void dispose() {
+    _services.lock.removeListener(_onChange);
+    _c.dispose();
     _title.dispose();
     _body.dispose();
+    _custom.dispose();
     _bodyFocus.dispose();
-    _durationManual.dispose();
-    _controller?.dispose();
     super.dispose();
   }
 
-  /// Refresh project list (called when the page becomes visible).
-  Future<void> refresh() => _controller?.reload() ?? Future.value();
-
-  void _refresh() {
-    if (mounted) setState(() {});
-    final notice = _controller?.notice;
-    if (notice != null) {
-      _controller!.consumeNotice();
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(notice)));
-    }
+  void _onChange() {
+    if (!mounted) return;
+    setState(() {});
+    final notice = _c.notice;
+    if (notice == null) return;
+    _c.notice = null;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(notice)));
   }
 
-  void _trackToken() {
-    // Enter at the end of a checklist line starts the next one with `- [ ] `.
+  void _onBody() {
     final continued = continueChecklist(_body.text, _prevBody);
-    if (continued != null) {
-      _prevBody = continued;
-      _body.value = TextEditingValue(
-        text: continued,
-        selection: TextSelection.collapsed(offset: continued.length),
-      );
-    }
+    if (continued != null) _setBody(continued, continued.length);
     _prevBody = _body.text;
-    final token = activeToken(
-      _body.text,
-      _body.selection.baseOffset,
-      hashEnabled: _c.targetNote != null,
-    );
-    if (token != _token && mounted) setState(() => _token = token);
+    _c.setBody(_body.text);
+    final token = _c.mode == CaptureMode.event
+        ? null
+        : activeToken(
+            _body.text,
+            _body.selection.baseOffset,
+            hashEnabled: _c.target != null,
+          );
+    if (token != _token) setState(() => _token = token);
   }
 
-  void _replaceToken(String replacement) {
-    final result = replaceToken(
-      _body.text,
-      _body.selection.baseOffset,
-      replacement,
-    );
-    _body.value = TextEditingValue(
-      text: result.text,
-      selection: TextSelection.collapsed(offset: result.offset),
-    );
+  void _setBody(String text, int offset) => _body.value = TextEditingValue(
+    text: text,
+    selection: TextSelection.collapsed(offset: offset),
+  );
+
+  void _dropToken() {
+    final r = replaceToken(_body.text, _body.selection.baseOffset, '');
+    _setBody(r.text, r.offset);
+    setState(() => _token = null);
   }
 
-  /// Pick an autocomplete file as the capture target.
-  /// Gated files ask for unlock first; denial leaves the draft untouched.
+  /// Gated notes ask for an unlock first; a denial leaves the draft as is.
   Future<bool> _pickFile(NoteFileDto file) async {
-    if (_c.locked(file)) {
-      if (!await unlock(
-        context,
-        widget.state,
-        reason: 'Append to ${file.relPath}',
-      )) {
-        return false;
-      }
-      widget.state.fileUnlocked[file.relPath] = true;
+    if (_c.locked(file) &&
+        !await unlock(
+          context,
+          file.security,
+          reason: 'Save to ${file.relPath}',
+        )) {
+      return false;
     }
     _c.pickFile(file);
-    setState(() => _token = null);
-    _replaceToken('');
-    _bodyFocus.requestFocus();
     return true;
   }
 
-  void _pickHeader(String header) {
-    _c.pickHeader(header);
-    setState(() => _token = null);
-    _replaceToken('');
-    _bodyFocus.requestFocus();
+  Future<void> _pickInline(NoteFileDto file) async {
+    if (await _pickFile(file)) _dropToken();
   }
 
-  void _insertAtCursor(String snippet) {
-    final value = _body.value;
-    final start = value.selection.start >= 0
-        ? value.selection.start
-        : value.text.length;
-    final end = value.selection.end >= 0
-        ? value.selection.end
-        : value.text.length;
-    final r = insertSnippet(value.text, start, end, snippet);
-    _body.value = TextEditingValue(
-      text: r.text,
-      selection: TextSelection.collapsed(offset: r.offset),
-    );
-    _bodyFocus.requestFocus();
+  Future<void> _chooseNote() async {
+    final file = await pickNote(context, files: _c.files, locked: _c.locked);
+    if (file != null) await _pickFile(file);
   }
 
-  /// `- [ ] ` at the start of the current line.
+  Future<void> _chooseSection() async {
+    final header = await pickSection(context, headers: _c.headersFor(''));
+    if (header != null) _c.pickHeader(header);
+  }
+
   void _insertCheckbox() {
-    final value = _body.value;
-    final cursor = value.selection.start >= 0
-        ? value.selection.start
-        : value.text.length;
-    final r = insertCheckboxLine(value.text, cursor);
-    _body.value = TextEditingValue(
-      text: r.text,
-      selection: TextSelection.collapsed(offset: r.offset),
-    );
+    final cursor = _body.selection.start >= 0
+        ? _body.selection.start
+        : _body.text.length;
+    final r = insertCheckboxLine(_body.text, cursor);
+    _setBody(r.text, r.offset);
     _bodyFocus.requestFocus();
+  }
+
+  Future<void> _pickDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _c.eventDate,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
+    if (picked != null) _c.setEventDate(picked);
+  }
+
+  Future<void> _pickTime() async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay(hour: _c.startMin ~/ 60, minute: _c.startMin % 60),
+    );
+    if (picked != null) _c.setStartMin(picked.hour * 60 + picked.minute);
   }
 
   Future<void> _save() async {
-    final path = await _c.save();
-    if (!mounted) return;
-    if (path != null) {
-      _title.clear();
-      _body.clear();
-      _durationManual.text = '45m';
-      widget.onSaved();
-    }
-  }
-
-  void _clearDraft() {
+    if (!await _c.save()) return;
     _title.clear();
     _body.clear();
-    _durationManual.text = '45m';
+  }
+
+  Future<void> _confirmLeave() async {
+    final discard = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Discard draft?'),
+        content: const Text('The text you wrote will be lost.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Keep editing'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Discard'),
+          ),
+        ],
+      ),
+    );
+    if (discard != true || !mounted) return;
+    _title.clear();
+    _body.clear();
     _c.clearDraft();
+    final nav = Navigator.of(context);
+    nav.canPop() ? nav.pop() : await SystemNavigator.pop();
   }
 
   @override
   Widget build(BuildContext context) {
-    final controller = _controller;
-    if (controller == null) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
-    return CallbackShortcuts(
-      bindings: {
-        const SingleActivator(LogicalKeyboardKey.enter, control: true): _save,
+    // Offstage in the tab stack: back belongs to the shell, never ask here.
+    final guard = _c.dirty && Visibility.of(context);
+    return PopScope(
+      canPop: !guard,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && guard) unawaited(_confirmLeave());
       },
-      child: Focus(
-        autofocus: false,
-        child: PopScope(
-          canPop: !controller.dirty,
-          onPopInvokedWithResult: (didPop, _) async {
-            if (didPop || !controller.dirty) return;
-            final navigator = Navigator.of(context);
-            final choice = await confirmUnsavedEdits(context);
-            if (!mounted) return;
-            if (choice == DiscardChoice.save) {
-              await _save();
-              if (mounted && !controller.dirty) navigator.pop();
-            } else if (choice == DiscardChoice.discard) {
-              _clearDraft();
-              if (mounted) navigator.pop();
-            }
-          },
-          child: Scaffold(
-            backgroundColor: Colors.transparent,
-            appBar: AppBar(
-              title: const Text('Capture'),
-              actions: [
-                FilledButton(
-                  onPressed: controller.saving || !controller.canSave
-                      ? null
-                      : _save,
-                  child: const Text('Save ->'),
-                ),
-                const SizedBox(width: 8),
-              ],
-            ),
-            body: ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                CaptureFields(
-                  controller: controller,
-                  title: _title,
-                  body: _body,
-                  focusNode: _bodyFocus,
-                  token: _token,
-                  onSubmitted: (_) => _bodyFocus.requestFocus(),
-                  onPickHeader: _pickHeader,
-                  onPickFile: (f, hit) async {
-                    if (await _pickFile(f) && hit.isNotEmpty) {
-                      controller.pickHeader(hit);
-                    }
-                  },
-                  onCheckbox: _insertCheckbox,
-                  onProject: () => _insertAtCursor('@'),
-                  onSection: () => _insertAtCursor('#'),
-                ),
-                const SizedBox(height: 12),
-                BentoGrid(
-                  delegate: controller.delegate,
-                  asEvent: controller.asEvent,
-                  onDelegate: controller.setDelegate,
-                  onAsEvent: controller.setAsEvent,
-                ),
-                const SizedBox(height: 12),
-                EventSection(
-                  controller: controller,
-                  durationManual: _durationManual,
-                  onPickDate: () async {
-                    final picked = await showDatePicker(
-                      context: context,
-                      initialDate: controller.eventDate,
-                      firstDate: DateTime(2000),
-                      lastDate: DateTime(2100),
-                    );
-                    if (picked != null) controller.setEventDate(picked);
-                  },
-                  onDurationSet: (d) {
-                    controller.setDuration(d);
-                    _durationManual.text = d;
-                  },
-                ),
-              ],
-            ),
-          ),
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        appBar: AppBar(
+          title: const Text('Capture'),
+          actions: [
+            SaveButton(saving: _c.saving, onPressed: _c.canSave ? _save : null),
+            const SizedBox(width: 8),
+          ],
+        ),
+        body: Stack(
+          children: [
+            // Behind the form, on the screen's bottom edge: its lower half is
+            // off screen, the upper half shows through the glass nav bar.
+            // Hidden while typing: the keyboard would lift it into the form.
+            if (MediaQuery.viewInsetsOf(context).bottom == 0)
+              const Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: CloudArt(height: 130),
+              ),
+            _form(context),
+          ],
         ),
       ),
     );
   }
+
+  Widget _form(BuildContext context) => ListView(
+    padding: EdgeInsets.fromLTRB(
+      16,
+      8,
+      16,
+      32 + MediaQuery.paddingOf(context).bottom,
+    ),
+    children: [
+      ModeSelector(mode: _c.mode, onChanged: _c.setMode),
+      const SizedBox(height: 16),
+      CaptureFields(
+        controller: _c,
+        title: _title,
+        body: _body,
+        bodyFocus: _bodyFocus,
+        token: _token,
+        onPickFile: _pickInline,
+        onPickHeader: (h) {
+          _c.pickHeader(h);
+          _dropToken();
+        },
+        onCheckbox: _insertCheckbox,
+      ),
+      const SizedBox(height: 16),
+      ..._modeOptions(),
+    ],
+  );
+
+  List<Widget> _modeOptions() => switch (_c.mode) {
+    CaptureMode.event => [
+      EventOptions(
+        controller: _c,
+        customDuration: _custom,
+        onPickDate: _pickDate,
+        onPickTime: _pickTime,
+      ),
+    ],
+    CaptureMode.note || CaptureMode.agent => [
+      TargetRow(
+        target: _c.target,
+        header: _c.targetHeader,
+        emptyLabel: _c.mode == CaptureMode.note ? 'Inbox' : 'No related note',
+        showSection:
+            _c.mode == CaptureMode.note &&
+            _c.target != null &&
+            !_c.locked(_c.target!),
+        onPickNote: _chooseNote,
+        onPickSection: _chooseSection,
+        onClear: _c.clearTarget,
+      ),
+      if (_c.mode == CaptureMode.agent) ...[
+        const SizedBox(height: 16),
+        PrioritySelector(priority: _c.priority, onChanged: _c.setPriority),
+      ],
+    ],
+  };
 }

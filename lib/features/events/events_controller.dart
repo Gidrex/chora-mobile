@@ -2,186 +2,154 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
-import '../../data/settings_store.dart';
 import '../../data/events_repository.dart';
 import '../../data/models.dart';
-import '../../data/notes_repository.dart';
-import '../../platform/notifications.dart';
+import '../../data/settings_store.dart';
+import '../../domain/dates.dart';
+import '../../domain/events_view.dart';
 
-/// Events screen state: month grid, repeatables, and one-shot day loads.
-/// Day snapshots stay in the widgets (popover, list); CRUD and reminders
-/// live here. No `BuildContext`; errors surface as values.
+/// Events tab state: shown month, selected day, agenda, and event writes.
+/// Reloads whenever the storage [revision] moves. No `BuildContext`:
+/// failures come back as messages for the widgets to show.
 class EventsController extends ChangeNotifier {
-  EventsController(this._repo, this._state) {
-    _repo.revision.addListener(_onRevision);
+  EventsController(
+    this._repo,
+    this._settings,
+    this._revision, {
+    required Future<void> Function(EventDto saved) afterSave,
+    required Future<void> Function() refresh,
+    DateTime Function()? clock,
+  }) : _afterSave = afterSave,
+       _refresh = refresh,
+       _clock = clock ?? DateTime.now {
+    final today = dayOf(_clock());
+    month = DateTime(today.year, today.month);
+    selected = today;
+    _revision.addListener(_onRevision);
   }
 
   final EventsRepository _repo;
-  final SettingsStore _state;
+  final SettingsStore _settings;
+  final Listenable _revision;
+  final Future<void> Function(EventDto saved) _afterSave;
+  final Future<void> Function() _refresh;
+  final DateTime Function() _clock;
   bool _disposed = false;
 
-  DateTime month = DateTime(DateTime.now().year, DateTime.now().month);
+  /// Returned by writes when sync changed the event; the view is reloaded.
+  static const changedMessage = 'Changed on another device, reloaded';
+
+  late DateTime month;
+  late DateTime selected;
   List<CalendarCellDto> cells = const [];
-  bool monthLoading = true;
+  List<EventDto> dayEvents = const [];
+  List<EventDto> agenda = const [];
+  bool loading = true;
   String? error;
 
-  String repeatDay = weekdays[(DateTime.now().weekday - 1) % 7];
-  List<EventDto> repeatEvents = const [];
-  bool repeatLoading = true;
+  /// Bumps on every storage change; pages that cache reads key on it.
+  int generation = 0;
 
-  /// One-shot user message (error text); widgets render and clear it.
-  String? notice;
-  void consumeNotice() {
-    notice = null;
+  DateTime get today => dayOf(_clock());
+  EventsView get view => _settings.eventsView;
+
+  Future<void> setView(EventsView v) async {
+    await _settings.setEventsView(v);
+    await load();
   }
 
-  SettingsStore get state => _state;
-
-  Future<void> reload() async {
-    await Future.wait([loadMonth(), loadRepeatables()]);
-  }
-
-  Future<void> loadMonth() async {
-    monthLoading = true;
+  /// Load what the current view shows: month grid + selected day, or agenda.
+  Future<void> load() async {
+    loading = true;
     error = null;
     _notify();
     try {
-      cells = await _repo.monthGrid(
-        month.year,
-        month.month,
-        showRepeat: _state.showRepeat,
-      );
-    } on NotesFailure catch (e) {
+      if (view == EventsView.month) {
+        final (grid, day) = await (
+          _repo.month(month, showWeekly: _settings.showWeekly),
+          _repo.day(selected),
+        ).wait;
+        cells = grid;
+        dayEvents = day;
+      } else {
+        agenda = await _repo.range(today, addDays(today, agendaDays - 1));
+      }
+    } on ParallelWaitError<
+      (List<CalendarCellDto>?, List<EventDto>?),
+      (AsyncError?, AsyncError?)
+    > catch (e) {
+      error = '${(e.errors.$1 ?? e.errors.$2)?.error}';
+    } on AppFailure catch (e) {
       error = e.message;
     }
-    monthLoading = false;
+    loading = false;
     _notify();
-  }
-
-  void setMonth(DateTime m) {
-    month = DateTime(m.year, m.month);
-    unawaited(loadMonth());
   }
 
   void pageMonth(int delta) {
-    setMonth(DateTime(month.year, month.month + delta));
+    month = shiftMonth(month, delta);
+    unawaited(load());
   }
 
-  Future<void> loadRepeatables() async {
-    repeatLoading = true;
-    _notify();
-    try {
-      repeatEvents = await _repo.repeatables(repeatDay);
-    } on NotesFailure catch (e) {
-      notice = e.message;
+  void select(DateTime day) {
+    selected = dayOf(day);
+    if (day.month != month.month || day.year != month.year) {
+      month = DateTime(day.year, day.month);
     }
-    repeatLoading = false;
-    _notify();
+    unawaited(load());
   }
 
-  void setRepeatDay(String day) {
-    if (repeatDay == day) return;
-    repeatDay = day;
-    unawaited(loadRepeatables());
-  }
+  /// Weekly events of [day]; cached by the repository until a change.
+  Future<List<EventDto>> weekly(Weekday day) => _repo.weekly(day);
 
-  /// Day snapshot for popover/list views (repository-cached).
-  Future<DayEventsDto> loadDay(String dateIso) => _repo.dayEvents(dateIso);
-
-  /// Reminder side effects for a saved event (moved out of the widget).
-  Future<void> _remind(EventDto dto) async {
-    await Reminders.rescheduleUpcoming(
-      enabled: _state.notifEnabled,
-      minutesBefore: _state.notifMinutes,
-    );
-    await Reminders.maybeAutoAlarm(
-      enabled: _state.autoAlarm,
-      mode: _state.alarmMode.name,
-      beforeMin: _state.alarmBeforeMin,
-      event: dto,
-    );
-  }
-
-  /// Form-owned flows: returns the error message, or null on success.
-  /// The form shows it with its own context (visible above dialogs);
-  /// screen-owned flows below use [notice] instead.
-  Future<String?> createEvent(EventDto dto) async {
+  /// Pull external (sync) changes; the revision bump reloads the view.
+  Future<void> refresh() async {
     try {
-      await _repo.createEvent(dto);
-      await _remind(dto);
-      return null;
-    } on NotesFailure catch (e) {
-      return e.message;
-    }
-  }
-
-  Future<String?> updateEvent(
-    String originalDateIso,
-    BigInt sectionIndex,
-    EventDto dto,
-  ) async {
-    try {
-      await _repo.updateEvent(originalDateIso, sectionIndex, dto);
-      await _remind(dto);
-      return null;
-    } on NotesFailure catch (e) {
-      return e.message;
-    }
-  }
-
-  Future<String?> deleteEvent(String dateIso, BigInt sectionIndex) async {
-    try {
-      await _repo.deleteEvent(dateIso, sectionIndex);
-      return null;
-    } on NotesFailure catch (e) {
-      return e.message;
-    }
-  }
-
-  List<EventDto> _renumbered(List<EventDto> events) => [
-    for (var i = 0; i < events.length; i++)
-      EventDto(
-        index: BigInt.from(i),
-        title: events[i].title,
-        dateIso: events[i].dateIso,
-        timeHhmm: events[i].timeHhmm,
-        durationStr: events[i].durationStr,
-        context: events[i].context,
-        isRepeatable: true,
-      ),
-  ];
-
-  Future<void> saveRepeatables(List<EventDto> events) async {
-    try {
-      await _repo.saveRepeatables(repeatDay, _renumbered(events));
-    } on NotesFailure catch (e) {
-      notice = e.message;
+      await _refresh();
+    } on AppFailure catch (e) {
+      error = e.message;
       _notify();
     }
   }
 
-  /// Insert or replace one repeatable, then persist the day.
-  Future<void> upsertRepeatable({
-    required EventDto? existing,
-    required int? index,
-    required EventDto dto,
-  }) async {
-    final next = [...repeatEvents];
-    if (existing != null && index != null) {
-      next[index] = dto;
-    } else {
-      next.add(dto);
+  /// Create ([original] null) or replace an event. Null on success,
+  /// else a message to show.
+  Future<String?> save({EventDto? original, required EventDto updated}) =>
+      _write(() async {
+        if (original == null) {
+          await _repo.add(updated);
+        } else {
+          await _repo.update(original, updated);
+        }
+        unawaited(_alarm(updated));
+      });
+
+  Future<String?> delete(EventDto original) =>
+      _write(() => _repo.delete(original));
+
+  Future<String?> _write(Future<void> Function() call) async {
+    try {
+      await call();
+      return null;
+    } on AppFailure catch (e) {
+      if (e.kind != ErrorKind.changed) return e.message;
+      await refresh();
+      return changedMessage;
     }
-    await saveRepeatables(next);
   }
 
-  Future<void> deleteRepeatable(int index) async {
-    final next = [...repeatEvents]..removeAt(index);
-    await saveRepeatables(next);
+  Future<void> _alarm(EventDto saved) async {
+    try {
+      await _afterSave(saved);
+    } on Exception catch (e) {
+      // The event is saved; a missing alarm app must not look like a failure.
+      debugPrint('auto alarm skipped: $e');
+    }
   }
 
   void _onRevision() {
-    unawaited(reload());
+    generation++;
+    unawaited(load());
   }
 
   void _notify() {
@@ -191,18 +159,7 @@ class EventsController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
-    _repo.revision.removeListener(_onRevision);
+    _revision.removeListener(_onRevision);
     super.dispose();
   }
 }
-
-/// Monday-first weekday keys for repeatables.
-const weekdays = [
-  'monday',
-  'tuesday',
-  'wednesday',
-  'thursday',
-  'friday',
-  'saturday',
-  'sunday',
-];

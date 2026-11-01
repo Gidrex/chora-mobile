@@ -4,12 +4,14 @@ import 'package:flutter/material.dart';
 
 import '../../app/app_scope.dart';
 import '../../data/models.dart';
-import '../../screens/note_blocks.dart';
+import '../../domain/notes_filter.dart';
 import '../../ui/theme_helpers.dart';
 import '../../ui/widgets.dart';
-import 'notes_controller.dart';
+import 'note_controller.dart';
+import 'widgets/note_blocks.dart';
+import 'widgets/notes_message.dart';
 
-/// Markdown preview with tappable checkboxes + raw edit mode.
+/// One note: preview with tappable tasks, raw markdown edit mode.
 class NoteViewerScreen extends StatefulWidget {
   const NoteViewerScreen({super.key, required this.file});
 
@@ -20,149 +22,143 @@ class NoteViewerScreen extends StatefulWidget {
 }
 
 class _NoteViewerScreenState extends State<NoteViewerScreen> {
-  NotesController? _controller;
-  late final TextEditingController _editor;
-  bool _editing = false;
+  late final NoteController _note;
+  final _editor = TextEditingController();
 
-  NotesController get _c => _controller!;
+  /// Text the edit started from; null while previewing.
+  String? _base;
+
+  bool get _editing => _base != null;
+  bool get _dirty => _editing && _editor.text != _base;
 
   @override
   void initState() {
     super.initState();
-    _editor = TextEditingController();
-    _editor.addListener(_touch);
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (_controller == null) {
-      _controller = NotesController(
-        AppScope.notesOf(context),
-        AppScope.of(context),
-      )..addListener(_refresh);
-      unawaited(_controller!.open(widget.file));
-    }
+    final services = AppScope.of(context);
+    _note = NoteController(
+      services.notes,
+      services.session.revision,
+      widget.file.relPath,
+    )..addListener(_onNote);
+    _editor.addListener(() => setState(() {}));
+    unawaited(_note.load());
   }
 
   @override
   void dispose() {
+    _note.dispose();
     _editor.dispose();
-    _controller?.dispose();
     super.dispose();
   }
 
-  void _touch() {
-    if (mounted) setState(() {});
+  void _onNote() {
+    final notice = _note.notice;
+    if (notice == null || !mounted) return;
+    _note.notice = null;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(notice)));
   }
 
-  void _refresh() {
-    if (mounted) setState(() {});
-    final notice = _controller?.notice;
-    if (notice != null) {
-      _controller!.consumeNotice();
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(notice)));
-    }
+  void _startEdit() => setState(() {
+    _base = _note.text;
+    _editor.text = _note.text ?? '';
+  });
+
+  Future<bool> _save() async {
+    final base = _base;
+    if (base == null) return true;
+    final ok = await _note.save(_editor.text, base: base);
+    if (!mounted) return ok;
+    // On a sync conflict the note reloaded: the next save overwrites it.
+    setState(() => _base = ok ? null : (_note.text ?? base));
+    return ok;
   }
 
-  /// Edits the user would lose by leaving.
-  bool get _dirty =>
-      _editing && _c.fileText != null && _editor.text != _c.fileText;
-
-  Future<void> _save() async {
-    if (await _c.saveFile(_editor.text) && mounted) {
-      setState(() => _editing = false);
-    }
+  /// Ask about unsaved edits; true when it is fine to leave edit mode.
+  Future<bool> _confirmLeave() async {
+    if (!_dirty) return true;
+    return switch (await confirmUnsavedEdits(context)) {
+      DiscardChoice.save => await _save(),
+      DiscardChoice.discard => true,
+      null => false,
+    };
   }
 
-  Future<void> _toggle(int index) async {
-    await _c.toggleLine(index);
-    if (mounted) setState(() => _editor.text = _c.fileText ?? _editor.text);
+  Future<void> _onPop(bool didPop) async {
+    if (didPop) return;
+    final navigator = Navigator.of(context);
+    if (!await _confirmLeave() || !mounted) return;
+    setState(() => _base = null);
+    navigator.pop();
+  }
+
+  Future<void> _preview() async {
+    if (await _confirmLeave() && mounted) setState(() => _base = null);
   }
 
   @override
   Widget build(BuildContext context) {
-    final controller = _controller;
-    if (controller == null ||
-        (controller.fileText == null && controller.fileError == null)) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
-    return PopScope(
-      canPop: !_dirty,
-      onPopInvokedWithResult: (didPop, _) async {
-        if (didPop || !_dirty) return;
-        final navigator = Navigator.of(context);
-        final choice = await confirmUnsavedEdits(context);
-        if (!mounted) return;
-        if (choice == DiscardChoice.save) {
-          await _save();
-          if (mounted && !_dirty) navigator.pop();
-        } else if (choice == DiscardChoice.discard) {
-          setState(() => _editor.text = controller.fileText ?? '');
-          if (mounted) navigator.pop();
-        }
-      },
-      child: Scaffold(
-        appBar: AppBar(
-          title: Text(widget.file.fileName, style: mono(context, size: 15)),
-          actions: [
-            securityBadge(context, widget.file.security.name),
-            IconButton(
-              icon: Icon(_editing ? Icons.visibility : Icons.edit),
-              tooltip: _editing ? 'Preview' : 'Edit',
-              onPressed: controller.fileText == null
-                  ? null
-                  : () => setState(() {
-                      if (!_editing) {
-                        _editor.text = controller.fileText ?? '';
-                      }
-                      _editing = !_editing;
-                    }),
-            ),
-            if (_editing)
-              IconButton(
-                icon: const Icon(Icons.save),
-                tooltip: 'Save',
-                onPressed: _save,
-              ),
-          ],
+    return ListenableBuilder(
+      listenable: _note,
+      builder: (context, _) => PopScope(
+        canPop: !_dirty,
+        onPopInvokedWithResult: (didPop, _) => unawaited(_onPop(didPop)),
+        child: Scaffold(
+          appBar: AppBar(
+            title: Text(noteTitle(widget.file)),
+            actions: _actions(),
+          ),
+          body: _body(),
         ),
-        body: controller.fileError != null
-            ? Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text('Could not open note'),
-                    const SizedBox(height: 8),
-                    Text(controller.fileError!),
-                    const SizedBox(height: 16),
-                    FilledButton(
-                      onPressed: () => unawaited(controller.open(widget.file)),
-                      child: const Text('Retry'),
-                    ),
-                  ],
-                ),
-              )
-            : _editing
-            ? Padding(
-                padding: const EdgeInsets.all(16),
-                child: TextField(
-                  controller: _editor,
-                  maxLines: null,
-                  expands: true,
-                  textAlignVertical: TextAlignVertical.top,
-                  style: mono(context, size: 13),
-                  decoration: const InputDecoration(
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-              )
-            : NoteBlocks(
-                text: controller.fileText!,
-                onToggle: (i, _) => _toggle(i),
-              ),
+      ),
+    );
+  }
+
+  List<Widget> _actions() => [
+    if (_editing)
+      IconButton(
+        icon: const Icon(Icons.check),
+        tooltip: 'Save',
+        onPressed: _note.saving || !_dirty ? null : () => unawaited(_save()),
+      ),
+    IconButton(
+      icon: Icon(_editing ? Icons.visibility_outlined : Icons.edit_outlined),
+      tooltip: _editing ? 'Preview' : 'Edit',
+      onPressed: _note.text == null
+          ? null
+          : _editing
+          ? () => unawaited(_preview())
+          : _startEdit,
+    ),
+  ];
+
+  Widget _body() {
+    final text = _note.text;
+    if (text == null) {
+      return _note.error == null
+          ? const Center(child: CircularProgressIndicator())
+          : NotesMessage(
+              icon: Icons.error_outline,
+              text: _note.error!,
+              action: 'Retry',
+              onAction: () => unawaited(_note.load()),
+            );
+    }
+    if (!_editing) {
+      return NoteBlocks(
+        text: text,
+        onToggle: (line) => unawaited(_note.toggle(line)),
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: TextField(
+        controller: _editor,
+        maxLines: null,
+        expands: true,
+        autofocus: true,
+        textAlignVertical: TextAlignVertical.top,
+        style: mono(context, size: 14),
+        decoration: const InputDecoration(border: OutlineInputBorder()),
       ),
     );
   }
