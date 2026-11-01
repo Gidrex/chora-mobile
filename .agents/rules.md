@@ -3,13 +3,14 @@
 ## Generated code
 
 - Never hand-edit: `rust/src/frb_generated.rs`, `lib/src/rust/frb_generated*.dart`, everything under
-  `lib/src/rust/` except `api.dart`. Source of truth is `rust/src/api.rs` + `flutter_rust_bridge.yaml`.
+  `lib/src/rust/`. Source of truth is `rust/src/api/**` + `flutter_rust_bridge.yaml`.
 
 ## State ownership
 
 - Layer ownership (bridge, files, controllers, widgets): `.agents/architecture.md`.
-- `Backend.root` is set once in `Backend.init()`. Path changes go only through a re-init with error handling.
-- File unlocks (`AppState.fileUnlocked`) are session-scoped; never make them persistent unless asked.
+- The storage path changes only through `StorageRepository.moveTo` (reopens the vault, keeps the old one on
+  failure); persist the new path only after it succeeded.
+- Unlocks (`SessionLock`) are session-scoped; never make them persistent unless asked.
 
 ## Style
 
@@ -30,5 +31,5 @@
 
 ## Errors in new code
 
-- Surface errors to the user (`Backend.errMsg` in a snackbar), never swallow with an empty `catch`.
+- Surface errors to the user (`AppFailure.message` in a snackbar), never swallow with an empty `catch`.
 - Validate paths from settings before use; a failed re-init must not crash the app.

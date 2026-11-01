@@ -4,13 +4,13 @@
 # Apply formatting (Dart + Rust; generated bridge output is excluded).
 fmt:
     fvm dart format lib test
-    cd rust && rustfmt --edition 2024 --config skip_children=true src/api.rs src/lib.rs
+    cd rust && rustfmt --edition 2024 --config skip_children=true src/lib.rs src/api/*.rs
 
 # Static checks: format gate, analyze, clippy, Kotlin compile.
 lint:
     fvm dart format --output=none --set-exit-if-changed lib test
     fvm flutter analyze
-    cd rust && rustfmt --edition 2024 --config skip_children=true src/api.rs src/lib.rs
+    cd rust && rustfmt --check --edition 2024 --config skip_children=true src/lib.rs src/api/*.rs
     cd rust && cargo clippy --all-targets -- -D warnings
     cd android && ./gradlew :app:compileDebugKotlin
 

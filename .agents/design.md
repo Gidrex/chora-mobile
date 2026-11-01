@@ -10,7 +10,17 @@ Reference for `.agents/skills/ui-ux/SKILL.md`. Material 3 first: use stock M3 co
 - Motion: 150–250 ms, `Curves.easeOutCubic` (enter) / `easeInCubic` (exit). No bounce on content.
 - Type: `textTheme` roles only (`titleLarge` screen titles, `titleMedium` sections, `bodyLarge` content,
   `labelMedium` metadata). Mono only for raw markdown editing.
-- Color: `ColorScheme` roles and the `EventPalette` extension only. Contrast >= 4.5:1 in light AND dark.
+- Color: `ColorScheme` roles, `EventPalette` and `Tones` extensions only (raw values live in
+  `lib/ui/palettes.dart`/`theme.dart`). Contrast >= 4.5:1 in light AND dark.
+- Text tones (`Tones.of(context)`): every kind of text has its own color on every screen — `file` names/paths,
+  `heading` note titles (h1), `folder` projects, `time` starts, `duration` lengths/counts, `section` `#`
+  sections/tags, `weekly` repeating events, `muted` metadata. Other presets derive the same roles from their
+  accents, so a widget colored by role looks right everywhere.
+- Feel (Ambient Night reference): soft charcoal night, borderless rounded cards (24) with faint shadows,
+  pastel accents, starfield with a dim moon; decorative art (`lib/ui/cloud.dart`) is drawn in code from
+  theme colors, never images.
+- Size: users scale text (`textScale` 0.8–1.6) and the whole UI (`uiScale` 0.8–1.3) in Settings; layouts must
+  survive both extremes.
 
 ## Interaction rules
 

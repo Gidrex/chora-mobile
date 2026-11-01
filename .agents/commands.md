@@ -12,7 +12,7 @@ fvm flutter test
 
 ## Codegen
 
-After any edit to `rust/src/api.rs`:
+After any edit to `rust/src/api/**`:
 
 ```bash
 PATH="$PWD/.fvm/flutter_sdk/bin:$PATH" flutter_rust_bridge_codegen generate
@@ -37,10 +37,10 @@ cargo test
 `flutter test` does not bundle the Rust lib, and `testWidgets` swallows native
 completions (FakeAsync): bridge futures only resolve inside `tester.runAsync`.
 
-- Build once after every `api.rs` change: `cargo build` in `rust/`
+- Build once after every Rust change: `cargo build` in `rust/`
   (provides `rust/target/debug/libchora_mobile_rust.so`).
-- `test/test_backend.dart:initTestBackend()` loads that `.so` and inits a temp
-  root. Call it in `setUpAll`; seed/read via `tester.runAsync(...)`; wrap loads
+- `test/test_backend.dart:testServices()` loads that `.so` and returns `AppServices` over a temp
+  storage; `harness(services, child)` wraps a screen. Call it inside `tester.runAsync`; seed/read via `tester.runAsync(...)`; wrap loads
   triggered by pumped widgets in `runAsync` + bounded `pump()` instead of
   `pumpAndSettle` while a load is pending.
 

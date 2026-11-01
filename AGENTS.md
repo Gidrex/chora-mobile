@@ -13,7 +13,6 @@ Only by zone:
 
 - `.agents/roadmap.md` — ordered task queue with acceptance criteria; take tasks from here.
 - `.agents/design.md` — design tokens, interaction and accessibility rules for any visible change.
-- `.agents/backend-tasks.md` — tasks for the `chora` backend and `rust/src/api.rs`.
 - `.agents/skills.md` — skill index.
 - `.agents/skills/android-native/SKILL.md` — FRB bridge, native code, reminders.
 - `.agents/skills/pre-commit-quality-review/SKILL.md` — pre-commit check.
@@ -26,10 +25,10 @@ Only by zone:
 - FVM only: `fvm flutter ...`, `fvm dart ...`. Bare `flutter`/`dart` is forbidden. For
   `flutter_rust_bridge_codegen` — `PATH="$PWD/.fvm/flutter_sdk/bin:$PATH"`.
 - `flutter test`, not `dart test`.
-- After editing `rust/src/api.rs` — regenerate the bridge, never hand-edit `frb_generated*`.
-- `Backend.init()` runs once per launch. Only `lib/data/**` and `lib/platform/**` call the bridge or touch
-  files; `test/architecture_test.dart` fails on new violations. Fixing a legacy file means deleting its
-  baseline entry there, never adding one.
+- After editing `rust/src/api/**` — regenerate the bridge, never hand-edit `frb_generated*`.
+- Logic goes to the `chora` crate (Rust, `../chora`, released to crates.io) or `lib/domain/` (Dart); `api/` and widgets stay thin. Only
+  `lib/data/**`, `lib/platform/**`, `lib/main.dart` touch the bridge or `dart:io`;
+  `test/architecture_test.dart` enforces the layer rules with no baselines.
 - Commits are Conventional Commits, no `Co-authored-by` from agents. See `.agents/rules.md`.
 - Before reporting done: `fvm dart format`, `fvm flutter analyze`, `fvm flutter test`, plus
   `cargo fmt --check/clippy/test` when `rust/` was touched. Say plainly what you skipped.
